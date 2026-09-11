@@ -1,6 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
-import { getMeeting, updateMeeting, deleteMeeting, type LocalMeeting } from '../lib/db'
+import {
+  getMeeting,
+  updateMeeting,
+  deleteMeeting,
+  listSuggestionsForMeeting,
+  updateSuggestionStatus,
+  createDecision,
+  createActionItem,
+  listDecisionsForMeeting,
+  listActionItemsForMeeting,
+  type LocalMeeting,
+  type LocalSuggestion,
+  type LocalDecision,
+  type LocalActionItem,
+} from '../lib/db'
 import { requestMeetingTranscription } from '../lib/transcribe'
+import { requestMeetingAnalysis } from '../lib/analyze'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { formatDuration } from '../lib/format'
 import { IconBack, IconClose } from '../components/icons'
@@ -21,8 +36,24 @@ export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingVie
   const [agenda, setAgenda] = useState('')
   const [participantNames, setParticipantNames] = useState<string[]>([])
   const [participantDraft, setParticipantDraft] = useState('')
+  const [suggestions, setSuggestions] = useState<LocalSuggestion[]>([])
+  const [decisions, setDecisions] = useState<LocalDecision[]>([])
+  const [actionItems, setActionItems] = useState<LocalActionItem[]>([])
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null)
   const saveTimer = useRef<number | null>(null)
   const triedTranscribe = useRef(false)
+
+  async function reloadSuggestionsAndOutcomes() {
+    const [s, d, a] = await Promise.all([
+      listSuggestionsForMeeting(meetingId),
+      listDecisionsForMeeting(meetingId),
+      listActionItemsForMeeting(meetingId),
+    ])
+    setSuggestions(s)
+    setDecisions(d)
+    setActionItems(a)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -39,6 +70,7 @@ export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingVie
       setStatus('ready')
       if (m.audioBlob) setAudioUrl(URL.createObjectURL(m.audioBlob))
     })
+    void reloadSuggestionsAndOutcomes()
     return () => {
       cancelled = true
     }
@@ -95,6 +127,49 @@ export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingVie
   async function handleDelete() {
     await deleteMeeting(meetingId)
     onDeleted()
+  }
+
+  async function handleAnalyze() {
+    setAnalyzing(true)
+    setAnalyzeError(null)
+    const result = await requestMeetingAnalysis(meetingId)
+    setAnalyzing(false)
+    if (!result.ok) {
+      setAnalyzeError(result.message)
+      return
+    }
+    await reloadSuggestionsAndOutcomes()
+  }
+
+  async function handleApprove(suggestion: LocalSuggestion) {
+    if (suggestion.payload.kind === 'summary') {
+      await updateMeeting(meetingId, { summary: suggestion.payload.text })
+      const refreshed = await getMeeting(meetingId)
+      if (refreshed) setMeeting(refreshed)
+    } else if (suggestion.payload.kind === 'decision') {
+      await createDecision({
+        meetingId,
+        text: suggestion.payload.text,
+        context: suggestion.payload.context,
+        createdFromSuggestionId: suggestion.id,
+      })
+    } else if (suggestion.payload.kind === 'action') {
+      await createActionItem({
+        title: suggestion.payload.title,
+        owner: suggestion.payload.owner,
+        dueDate: suggestion.payload.dueDate,
+        sourceMeetingId: meetingId,
+        confidence: suggestion.confidence,
+        createdFromSuggestionId: suggestion.id,
+      })
+    }
+    await updateSuggestionStatus(suggestion.id, 'approved')
+    await reloadSuggestionsAndOutcomes()
+  }
+
+  async function handleIgnore(suggestion: LocalSuggestion) {
+    await updateSuggestionStatus(suggestion.id, 'ignored')
+    await reloadSuggestionsAndOutcomes()
   }
 
   function handleDone() {
@@ -208,6 +283,94 @@ export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingVie
           </div>
         )}
       </div>
+
+      {meeting.status === 'ready' &&
+        meeting.transcript &&
+        (suggestions.length === 0 || suggestions.some((s) => s.status === 'pending')) && (
+        <div>
+          <p className="section-label">AI suggestions</p>
+
+          {suggestions.length === 0 && (
+            <>
+              <button className="analyze-btn" type="button" onClick={() => void handleAnalyze()} disabled={analyzing}>
+                {analyzing ? 'Analyzing…' : 'Analyze meeting'}
+              </button>
+              <p className="muted" style={{ marginTop: 8 }}>
+                Reads the transcript and suggests a summary, decisions, and action items for you to approve —
+                nothing is added until you say so.
+              </p>
+              {analyzeError && <p className="muted">{analyzeError}</p>}
+            </>
+          )}
+
+          {suggestions.filter((s) => s.status === 'pending').length > 0 && (
+            <div className="list">
+              {suggestions
+                .filter((s) => s.status === 'pending')
+                .map((s) => (
+                  <div key={s.id} className="suggestion-card">
+                    <p className="suggestion-text">
+                      {s.payload.kind === 'summary' && s.payload.text}
+                      {s.payload.kind === 'decision' && s.payload.text}
+                      {s.payload.kind === 'action' &&
+                        `${s.payload.title}${s.payload.owner ? ` — ${s.payload.owner}` : ''}${
+                          s.payload.dueDate ? ` (due ${s.payload.dueDate})` : ''
+                        }`}
+                    </p>
+                    <span className="suggestion-kind">
+                      {s.payload.kind === 'summary' ? 'Summary' : s.payload.kind === 'decision' ? 'Decision' : 'Action item'}
+                    </span>
+                    <div className="suggestion-actions">
+                      <button type="button" className="suggestion-approve" onClick={() => void handleApprove(s)}>
+                        Approve
+                      </button>
+                      <button type="button" className="suggestion-ignore" onClick={() => void handleIgnore(s)}>
+                        Ignore
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {meeting.summary && (
+        <div>
+          <p className="section-label">Summary</p>
+          <p className="transcript-text">{meeting.summary}</p>
+        </div>
+      )}
+
+      {decisions.length > 0 && (
+        <div>
+          <p className="section-label">Decisions</p>
+          <div className="group">
+            {decisions.map((d) => (
+              <div key={d.id} className="row" style={{ cursor: 'default' }}>
+                <span className="t">{d.text}</span>
+                {d.context && <span className="m">{d.context}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {actionItems.length > 0 && (
+        <div>
+          <p className="section-label">Action items</p>
+          <div className="group">
+            {actionItems.map((a) => (
+              <div key={a.id} className="row" style={{ cursor: 'default' }}>
+                <span className="t">{a.title}</span>
+                <span className="m">
+                  {[a.owner, a.dueDate].filter(Boolean).join(' · ') || 'Unassigned'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <button className="delete-btn" type="button" onClick={handleDelete}>
         Delete meeting
