@@ -11,9 +11,17 @@ export type Confidence = 'high' | 'medium' | 'low'
 export interface Meeting {
   id: string
   title: string
+  agenda: string | null
+  participantNames: string[]
   status: MeetingStatus
+  durationSeconds: number
+  storagePath: string | null
+  transcript: string | null
+  summary: string | null
   startedAt: string | null
   endedAt: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ActionItem {

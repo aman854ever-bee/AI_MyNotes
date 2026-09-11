@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
-import { listNotes, listVoiceNotes, type LocalNote, type LocalVoiceNote } from '../lib/db'
+import { listNotes, listVoiceNotes, listMeetings, type LocalNote, type LocalVoiceNote, type LocalMeeting } from '../lib/db'
 import { relativeDate, formatDuration } from '../lib/format'
-import { IconDoc, IconMic, IconPlus } from '../components/icons'
+import { IconDoc, IconMeeting, IconMic, IconPlus } from '../components/icons'
 
 interface HomeProps {
   onOpenNote: (id: string) => void
   onOpenVoiceNote: (id: string) => void
+  onOpenMeeting: (id: string) => void
   onOpenNotesList: () => void
   onCapture: () => void
 }
@@ -14,18 +15,21 @@ interface HomeProps {
 type RecentItem =
   | { kind: 'note'; updatedAt: string; note: LocalNote }
   | { kind: 'voice'; updatedAt: string; voiceNote: LocalVoiceNote }
+  | { kind: 'meeting'; updatedAt: string; meeting: LocalMeeting }
 
-export default function Home({ onOpenNote, onOpenVoiceNote, onOpenNotesList, onCapture }: HomeProps) {
+export default function Home({ onOpenNote, onOpenVoiceNote, onOpenMeeting, onOpenNotesList, onCapture }: HomeProps) {
   const [notes, setNotes] = useState<LocalNote[]>([])
   const [voiceNotes, setVoiceNotes] = useState<LocalVoiceNote[]>([])
+  const [meetings, setMeetings] = useState<LocalMeeting[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([listNotes(), listVoiceNotes()]).then(([n, v]) => {
+    Promise.all([listNotes(), listVoiceNotes(), listMeetings()]).then(([n, v, m]) => {
       if (cancelled) return
       setNotes(n)
       setVoiceNotes(v)
+      setMeetings(m)
       setLoaded(true)
     })
     return () => {
@@ -39,9 +43,10 @@ export default function Home({ onOpenNote, onOpenVoiceNote, onOpenNotesList, onC
   const items: RecentItem[] = [
     ...notes.map((note): RecentItem => ({ kind: 'note', updatedAt: note.updatedAt, note })),
     ...voiceNotes.map((voiceNote): RecentItem => ({ kind: 'voice', updatedAt: voiceNote.updatedAt, voiceNote })),
+    ...meetings.map((meeting): RecentItem => ({ kind: 'meeting', updatedAt: meeting.updatedAt, meeting })),
   ].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
   const recent = items.slice(0, 4)
-  const totalCount = notes.length + voiceNotes.length
+  const totalCount = notes.length + voiceNotes.length + meetings.length
 
   return (
     <div className="page">
@@ -66,6 +71,12 @@ export default function Home({ onOpenNote, onOpenVoiceNote, onOpenNotesList, onC
             <div className="hero-stat">
               <span className="n">{voiceNotes.length}</span>
               <span className="l">{voiceNotes.length === 1 ? 'Voice note' : 'Voice notes'}</span>
+            </div>
+          )}
+          {meetings.length > 0 && (
+            <div className="hero-stat">
+              <span className="n">{meetings.length}</span>
+              <span className="l">{meetings.length === 1 ? 'Meeting' : 'Meetings'}</span>
             </div>
           )}
         </div>
@@ -94,7 +105,7 @@ export default function Home({ onOpenNote, onOpenVoiceNote, onOpenNotesList, onC
                   </span>
                   <span className="m">{relativeDate(item.note.updatedAt)}</span>
                 </button>
-              ) : (
+              ) : item.kind === 'voice' ? (
                 <button
                   key={item.voiceNote.id}
                   className="row"
@@ -108,6 +119,21 @@ export default function Home({ onOpenNote, onOpenVoiceNote, onOpenNotesList, onC
                     Voice note · {formatDuration(item.voiceNote.durationSeconds)}
                   </span>
                   <span className="m">{relativeDate(item.voiceNote.updatedAt)}</span>
+                </button>
+              ) : (
+                <button
+                  key={item.meeting.id}
+                  className="row"
+                  type="button"
+                  onClick={() => onOpenMeeting(item.meeting.id)}
+                >
+                  <span className="t">
+                    <span className="voice-row-icon" style={{ marginRight: 6 }}>
+                      <IconMeeting size={14} />
+                    </span>
+                    {item.meeting.title || `Meeting · ${formatDuration(item.meeting.durationSeconds)}`}
+                  </span>
+                  <span className="m">{relativeDate(item.meeting.updatedAt)}</span>
                 </button>
               ),
             )}

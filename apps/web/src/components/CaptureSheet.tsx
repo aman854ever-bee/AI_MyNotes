@@ -1,15 +1,13 @@
-import { useState } from 'react'
 import { IconChevronRight, IconDoc, IconImage, IconMeeting, IconMic } from './icons'
 
 interface CaptureSheetProps {
   onClose: () => void
   onTextNote: () => void
   onVoiceNote: () => void
+  onMeeting: () => void
 }
 
-export default function CaptureSheet({ onClose, onTextNote, onVoiceNote }: CaptureSheetProps) {
-  const [soon, setSoon] = useState<'meeting' | null>(null)
-
+export default function CaptureSheet({ onClose, onTextNote, onVoiceNote, onMeeting }: CaptureSheetProps) {
   return (
     <>
       <div className="backdrop" onClick={onClose} />
@@ -43,19 +41,18 @@ export default function CaptureSheet({ onClose, onTextNote, onVoiceNote }: Captu
           </span>
         </button>
 
-        <button className="opt" type="button" onClick={() => setSoon('meeting')}>
+        <button className="opt" type="button" onClick={onMeeting}>
           <span className="opt-icon">
             <IconMeeting />
           </span>
           <span className="body">
             <span className="t">Meeting</span>
-            <span className="s">Record and get a summary</span>
+            <span className="s">Record and get a transcript</span>
           </span>
           <span className="chev">
             <IconChevronRight />
           </span>
         </button>
-        {soon === 'meeting' && <p className="soon-note">Coming in a later phase (Phase 3 — Meeting recorder).</p>}
 
         <div className="opt disabled">
           <span className="opt-icon">
