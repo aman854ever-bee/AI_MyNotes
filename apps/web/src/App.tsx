@@ -10,6 +10,8 @@ import NoteEditor from './pages/NoteEditor'
 import Notes from './pages/Notes'
 import VoiceRecorder from './pages/VoiceRecorder'
 import VoiceNoteView from './pages/VoiceNoteView'
+import MeetingRecorder from './pages/MeetingRecorder'
+import MeetingView from './pages/MeetingView'
 
 type View =
   | { name: 'home' }
@@ -17,6 +19,8 @@ type View =
   | { name: 'editor'; noteId: string; from: 'home' | 'notes' }
   | { name: 'record'; from: 'home' | 'notes' }
   | { name: 'voice'; voiceNoteId: string; from: 'home' | 'notes' }
+  | { name: 'record-meeting'; from: 'home' | 'notes' }
+  | { name: 'meeting'; meetingId: string; from: 'home' | 'notes' }
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -68,6 +72,12 @@ export default function App() {
     setView({ name: 'record', from })
   }
 
+  function handleMeetingCapture() {
+    const from = captureFrom()
+    setCaptureOpen(false)
+    setView({ name: 'record-meeting', from })
+  }
+
   function backTo(from: 'home' | 'notes') {
     setView(from === 'notes' ? { name: 'notes' } : { name: 'home' })
   }
@@ -80,12 +90,17 @@ export default function App() {
     if (view.name === 'voice') backTo(view.from)
   }
 
+  function backFromMeeting() {
+    if (view.name === 'meeting') backTo(view.from)
+  }
+
   return (
     <>
       {view.name === 'home' && (
         <Home
           onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'home' })}
           onOpenVoiceNote={(id) => setView({ name: 'voice', voiceNoteId: id, from: 'home' })}
+          onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'home' })}
           onOpenNotesList={() => setView({ name: 'notes' })}
           onCapture={() => setCaptureOpen(true)}
         />
@@ -114,11 +129,23 @@ export default function App() {
         <VoiceNoteView voiceNoteId={view.voiceNoteId} onBack={backFromVoice} onDeleted={backFromVoice} />
       )}
 
+      {view.name === 'record-meeting' && (
+        <MeetingRecorder
+          onSaved={(id) => setView({ name: 'meeting', meetingId: id, from: view.from })}
+          onCancel={() => backTo(view.from)}
+        />
+      )}
+
+      {view.name === 'meeting' && (
+        <MeetingView meetingId={view.meetingId} onBack={backFromMeeting} onDeleted={backFromMeeting} />
+      )}
+
       {captureOpen && (
         <CaptureSheet
           onClose={() => setCaptureOpen(false)}
           onTextNote={() => void handleTextNoteCapture()}
           onVoiceNote={handleVoiceNoteCapture}
+          onMeeting={handleMeetingCapture}
         />
       )}
     </>

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Note, Project, VoiceNote } from '../types'
+import type { Meeting, Note, Project, VoiceNote } from '../types'
 
 // Local-first: every note is created, edited and deleted here first, with
 // no network round trip — that's what "offline supported" (PRD Section 34)
@@ -27,10 +27,23 @@ export interface LocalVoiceNote extends VoiceNote {
   deletedAt: string | null
 }
 
+// Same shape as LocalVoiceNote, plus title/agenda/participants. Status only
+// ever takes the client-relevant subset of the remote MeetingStatus enum
+// here: 'stopped' (recorded, not yet sent for transcription — recording
+// itself happens transiently in MeetingRecorder's own state before a
+// LocalMeeting even exists), 'transcribing', 'ready', 'failed'.
+export interface LocalMeeting extends Meeting {
+  audioBlob: Blob | null
+  dirty: 0 | 1
+  audioDirty: 0 | 1
+  deletedAt: string | null
+}
+
 class MyNotesDB extends Dexie {
   notes!: Table<LocalNote, string>
   projects!: Table<LocalProject, string>
   voiceNotes!: Table<LocalVoiceNote, string>
+  meetings!: Table<LocalMeeting, string>
 
   constructor() {
     super('mynotes')
@@ -42,6 +55,12 @@ class MyNotesDB extends Dexie {
       notes: 'id, updatedAt, dirty',
       projects: 'id, updatedAt, dirty',
       voiceNotes: 'id, updatedAt, dirty',
+    })
+    this.version(3).stores({
+      notes: 'id, updatedAt, dirty',
+      projects: 'id, updatedAt, dirty',
+      voiceNotes: 'id, updatedAt, dirty',
+      meetings: 'id, updatedAt, dirty',
     })
   }
 }
@@ -151,4 +170,70 @@ export async function getVoiceNote(id: string): Promise<LocalVoiceNote | undefin
 export async function listVoiceNotes(): Promise<LocalVoiceNote[]> {
   const all = await db.voiceNotes.toArray()
   return all.filter((v) => !v.deletedAt).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+}
+
+// --- Meetings ----------------------------------------------------------
+// Same local-first shape as voice notes. Participants are captured as
+// plain names (like tags on notes — see ADR/decision 7) rather than full
+// participant records; sync.ts resolves each name to a `participants` row
+// (creating one if needed) when it pushes to Supabase.
+
+export interface CreateMeetingInput {
+  title: string
+  agenda?: string | null
+  participantNames: string[]
+  audioBlob: Blob
+  durationSeconds: number
+  startedAt: string
+  endedAt: string
+}
+
+export async function createMeeting(input: CreateMeetingInput): Promise<LocalMeeting> {
+  const ts = nowIso()
+  const meeting: LocalMeeting = {
+    id: newId(),
+    title: input.title,
+    agenda: input.agenda ?? null,
+    participantNames: input.participantNames,
+    status: 'stopped',
+    durationSeconds: input.durationSeconds,
+    audioBlob: input.audioBlob,
+    storagePath: null,
+    transcript: null,
+    summary: null,
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
+    createdAt: ts,
+    updatedAt: ts,
+    dirty: 1,
+    audioDirty: 1,
+    deletedAt: null,
+  }
+  await db.meetings.put(meeting)
+  return meeting
+}
+
+export type UpdateMeetingInput = Partial<
+  Pick<
+    LocalMeeting,
+    'title' | 'agenda' | 'participantNames' | 'transcript' | 'summary' | 'status' | 'storagePath' | 'audioDirty'
+  >
+>
+
+export async function updateMeeting(id: string, patch: UpdateMeetingInput): Promise<void> {
+  await db.meetings.update(id, { ...patch, updatedAt: nowIso(), dirty: 1 })
+}
+
+export async function deleteMeeting(id: string): Promise<void> {
+  const ts = nowIso()
+  await db.meetings.update(id, { deletedAt: ts, updatedAt: ts, dirty: 1 })
+}
+
+export async function getMeeting(id: string): Promise<LocalMeeting | undefined> {
+  return db.meetings.get(id)
+}
+
+export async function listMeetings(): Promise<LocalMeeting[]> {
+  const all = await db.meetings.toArray()
+  return all.filter((m) => !m.deletedAt).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
 }

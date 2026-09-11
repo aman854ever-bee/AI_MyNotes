@@ -1,8 +1,11 @@
 // Supabase Edge Function: transcribe
 //
-// Receives raw recorded audio from the app and forwards it to Deepgram
-// using a server-side secret, so the Deepgram API key is never shipped to
-// the browser (see docs/decisions/0007-api-key-handling.md).
+// Receives a short-lived signed URL pointing at a recording already
+// uploaded to Supabase Storage, and asks Deepgram to fetch and transcribe
+// it directly — no audio bytes pass through this function, so there's no
+// practical size/duration limit tied to the function's own request body
+// (see docs/decisions/0007-api-key-handling.md for why the Deepgram key
+// lives only here, never in the browser).
 //
 // Deploy:   supabase functions deploy transcribe
 // Secret:   supabase secrets set DEEPGRAM_API_KEY=your-key-here
@@ -39,29 +42,25 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Transcription is not configured on the server yet' }, 500)
   }
 
-  let audio: ArrayBuffer
+  let payload: { url?: string }
   try {
-    audio = await req.arrayBuffer()
+    payload = await req.json()
   } catch {
-    return json({ error: 'Could not read the uploaded audio' }, 400)
+    return json({ error: 'Expected a JSON body: { "url": "..." }' }, 400)
   }
 
-  if (audio.byteLength === 0) {
-    return json({ error: 'No audio received' }, 400)
+  if (!payload.url) {
+    return json({ error: 'Missing "url"' }, 400)
   }
-
-  // MediaRecorder in the app records webm/opus by default; whatever the
-  // browser actually sent (via Content-Type) is passed straight through.
-  const contentType = req.headers.get('content-type') || 'audio/webm'
 
   try {
     const dgResponse = await fetch('https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true', {
       method: 'POST',
       headers: {
         Authorization: `Token ${DEEPGRAM_API_KEY}`,
-        'Content-Type': contentType,
+        'Content-Type': 'application/json',
       },
-      body: audio,
+      body: JSON.stringify({ url: payload.url }),
     })
 
     if (!dgResponse.ok) {
