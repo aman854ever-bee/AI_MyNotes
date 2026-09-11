@@ -12,8 +12,8 @@ export default defineConfig({
         name: 'MyNotes',
         short_name: 'MyNotes',
         description: 'Capture anything. Forget nothing. Get things done.',
-        theme_color: '#33459B',
-        background_color: '#FAF9F5',
+        theme_color: '#2F6FED',
+        background_color: '#F5F8FF',
         display: 'standalone',
         start_url: '/',
         icons: [

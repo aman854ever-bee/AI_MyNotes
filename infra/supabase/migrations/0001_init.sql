@@ -12,28 +12,19 @@ create table if not exists projects (
   created_at timestamptz not null default now()
 );
 
-create table if not exists tags (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  name text not null,
-  created_at timestamptz not null default now(),
-  unique (user_id, name)
-);
-
+-- Tags are a plain text[] column on notes (not a join table) --
+-- V1 is single-user with a small personal note volume, so a managed tag
+-- vocabulary is over-engineering for now; revisit if duplicate/near-duplicate
+-- tags become a real problem.
 create table if not exists notes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   project_id uuid references projects(id) on delete set null,
   title text,
   content text not null default '',
+  tags text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
-);
-
-create table if not exists note_tags (
-  note_id uuid not null references notes(id) on delete cascade,
-  tag_id uuid not null references tags(id) on delete cascade,
-  primary key (note_id, tag_id)
 );
 
 create table if not exists voice_notes (
@@ -166,9 +157,7 @@ create table if not exists reminders (
 -- Row Level Security -----------------------------------------------------
 
 alter table projects enable row level security;
-alter table tags enable row level security;
 alter table notes enable row level security;
-alter table note_tags enable row level security;
 alter table voice_notes enable row level security;
 alter table participants enable row level security;
 alter table meetings enable row level security;
@@ -184,7 +173,6 @@ alter table reminders enable row level security;
 
 -- Direct-owner tables: simple "own rows only".
 create policy "own rows" on projects for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-create policy "own rows" on tags for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "own rows" on notes for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "own rows" on voice_notes for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "own rows" on participants for all using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -216,10 +204,6 @@ create policy "own via meeting" on decisions for all
 create policy "own via meeting" on action_items for all
   using (meeting_id is null or exists (select 1 from meetings m where m.id = meeting_id and m.user_id = auth.uid()))
   with check (meeting_id is null or exists (select 1 from meetings m where m.id = meeting_id and m.user_id = auth.uid()));
-
-create policy "own via note" on note_tags for all
-  using (exists (select 1 from notes n where n.id = note_id and n.user_id = auth.uid()))
-  with check (exists (select 1 from notes n where n.id = note_id and n.user_id = auth.uid()));
 
 create policy "own via meeting" on meeting_participants for all
   using (exists (select 1 from meetings m where m.id = meeting_id and m.user_id = auth.uid()))

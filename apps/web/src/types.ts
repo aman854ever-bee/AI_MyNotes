@@ -31,3 +31,19 @@ export interface Reminder {
   remindAt: string
   status: 'scheduled' | 'sent' | 'snoozed' | 'done' | 'cancelled'
 }
+
+export interface Note {
+  id: string
+  title: string
+  content: string
+  projectId: string | null
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  createdAt: string
+}
