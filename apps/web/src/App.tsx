@@ -55,7 +55,11 @@ export default function App() {
   }
 
   function backFromEditor() {
-    setView(view.name === 'editor' ? { name: view.from } : { name: 'home' })
+    if (view.name === 'editor' && view.from === 'notes') {
+      setView({ name: 'notes' })
+    } else {
+      setView({ name: 'home' })
+    }
   }
 
   return (
