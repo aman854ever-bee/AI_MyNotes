@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Meeting, Note, Project, VoiceNote } from '../types'
+import type { ActionItem, Decision, Meeting, Note, Project, Suggestion, VoiceNote } from '../types'
 
 // Local-first: every note is created, edited and deleted here first, with
 // no network round trip — that's what "offline supported" (PRD Section 34)
@@ -39,11 +39,29 @@ export interface LocalMeeting extends Meeting {
   deletedAt: string | null
 }
 
+// Suggestions/decisions/action items are simpler than the capture types
+// above: no local editing UI, so no `deletedAt` tombstone — a suggestion
+// is created once, flips pending -> approved|ignored once, and that's it.
+export interface LocalSuggestion extends Suggestion {
+  dirty: 0 | 1
+}
+
+export interface LocalDecision extends Decision {
+  dirty: 0 | 1
+}
+
+export interface LocalActionItem extends ActionItem {
+  dirty: 0 | 1
+}
+
 class MyNotesDB extends Dexie {
   notes!: Table<LocalNote, string>
   projects!: Table<LocalProject, string>
   voiceNotes!: Table<LocalVoiceNote, string>
   meetings!: Table<LocalMeeting, string>
+  suggestions!: Table<LocalSuggestion, string>
+  decisions!: Table<LocalDecision, string>
+  actionItems!: Table<LocalActionItem, string>
 
   constructor() {
     super('mynotes')
@@ -61,6 +79,15 @@ class MyNotesDB extends Dexie {
       projects: 'id, updatedAt, dirty',
       voiceNotes: 'id, updatedAt, dirty',
       meetings: 'id, updatedAt, dirty',
+    })
+    this.version(4).stores({
+      notes: 'id, updatedAt, dirty',
+      projects: 'id, updatedAt, dirty',
+      voiceNotes: 'id, updatedAt, dirty',
+      meetings: 'id, updatedAt, dirty',
+      suggestions: 'id, meetingId, status, dirty',
+      decisions: 'id, meetingId, dirty',
+      actionItems: 'id, sourceMeetingId, dirty',
     })
   }
 }
@@ -236,4 +263,98 @@ export async function getMeeting(id: string): Promise<LocalMeeting | undefined> 
 export async function listMeetings(): Promise<LocalMeeting[]> {
   const all = await db.meetings.toArray()
   return all.filter((m) => !m.deletedAt).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+}
+
+// --- AI suggestions, decisions, action items ----------------------------
+// See ADR 0008. Created by lib/analyze.ts from a model response; approving
+// one here creates the real decision/action item (or fills
+// meetings.summary) and flips the suggestion's own status — nothing else
+// changes as a side effect.
+
+export interface CreateSuggestionInput {
+  meetingId: string
+  kind: Suggestion['kind']
+  payload: Suggestion['payload']
+  confidence?: Suggestion['confidence']
+}
+
+export async function createSuggestion(input: CreateSuggestionInput): Promise<LocalSuggestion> {
+  const ts = nowIso()
+  const suggestion: LocalSuggestion = {
+    id: newId(),
+    meetingId: input.meetingId,
+    kind: input.kind,
+    payload: input.payload,
+    confidence: input.confidence ?? null,
+    status: 'pending',
+    createdAt: ts,
+    updatedAt: ts,
+    dirty: 1,
+  }
+  await db.suggestions.put(suggestion)
+  return suggestion
+}
+
+export async function updateSuggestionStatus(id: string, status: Suggestion['status']): Promise<void> {
+  await db.suggestions.update(id, { status, updatedAt: nowIso(), dirty: 1 })
+}
+
+export async function listSuggestionsForMeeting(meetingId: string): Promise<LocalSuggestion[]> {
+  const all = await db.suggestions.where('meetingId').equals(meetingId).toArray()
+  return all.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+}
+
+export interface CreateDecisionInput {
+  meetingId: string
+  text: string
+  context?: string | null
+  createdFromSuggestionId?: string | null
+}
+
+export async function createDecision(input: CreateDecisionInput): Promise<LocalDecision> {
+  const decision: LocalDecision = {
+    id: newId(),
+    meetingId: input.meetingId,
+    text: input.text,
+    context: input.context ?? null,
+    createdFromSuggestionId: input.createdFromSuggestionId ?? null,
+    createdAt: nowIso(),
+    dirty: 1,
+  }
+  await db.decisions.put(decision)
+  return decision
+}
+
+export async function listDecisionsForMeeting(meetingId: string): Promise<LocalDecision[]> {
+  return db.decisions.where('meetingId').equals(meetingId).toArray()
+}
+
+export interface CreateActionItemInput {
+  title: string
+  owner?: string | null
+  dueDate?: string | null
+  sourceMeetingId?: string | null
+  confidence?: ActionItem['confidence']
+  createdFromSuggestionId?: string | null
+}
+
+export async function createActionItem(input: CreateActionItemInput): Promise<LocalActionItem> {
+  const actionItem: LocalActionItem = {
+    id: newId(),
+    title: input.title,
+    owner: input.owner ?? null,
+    dueDate: input.dueDate ?? null,
+    status: 'pending',
+    sourceMeetingId: input.sourceMeetingId ?? null,
+    confidence: input.confidence ?? null,
+    createdFromSuggestionId: input.createdFromSuggestionId ?? null,
+    createdAt: nowIso(),
+    dirty: 1,
+  }
+  await db.actionItems.put(actionItem)
+  return actionItem
+}
+
+export async function listActionItemsForMeeting(meetingId: string): Promise<LocalActionItem[]> {
+  return db.actionItems.where('sourceMeetingId').equals(meetingId).toArray()
 }

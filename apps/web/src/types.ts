@@ -32,12 +32,47 @@ export interface ActionItem {
   status: ActionStatus
   sourceMeetingId: string | null
   confidence: Confidence | null
+  createdFromSuggestionId: string | null
+  createdAt: string
+}
+
+export interface Decision {
+  id: string
+  meetingId: string
+  text: string
+  context: string | null
+  createdFromSuggestionId: string | null
+  createdAt: string
 }
 
 export interface Reminder {
   id: string
   remindAt: string
   status: 'scheduled' | 'sent' | 'snoozed' | 'done' | 'cancelled'
+}
+
+// --- AI suggestions ------------------------------------------------------
+// "AI suggests, user approves" (PRD Section 19) — nothing here is a fact
+// until an explicit Approve moves it into `decisions`/`action_items`, or
+// (for a summary) into `meetings.summary`.
+
+export type SuggestionKind = 'summary' | 'decision' | 'action'
+export type SuggestionStatus = 'pending' | 'approved' | 'ignored'
+
+export type SuggestionPayload =
+  | { kind: 'summary'; text: string }
+  | { kind: 'decision'; text: string; context: string | null }
+  | { kind: 'action'; title: string; owner: string | null; dueDate: string | null }
+
+export interface Suggestion {
+  id: string
+  meetingId: string
+  kind: SuggestionKind
+  payload: SuggestionPayload
+  confidence: Confidence | null
+  status: SuggestionStatus
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Note {

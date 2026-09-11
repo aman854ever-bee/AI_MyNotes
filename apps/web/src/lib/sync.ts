@@ -28,6 +28,9 @@ export async function syncNow(): Promise<void> {
     await pullRemoteVoiceNotes(userId)
     await pushDirtyMeetings(userId)
     await pullRemoteMeetings(userId)
+    await pushDirtySuggestions()
+    await pushDirtyDecisions()
+    await pushDirtyActionItems()
   } catch (err) {
     console.error('[mynotes] sync failed', err)
   } finally {
@@ -347,6 +350,72 @@ async function pullRemoteMeetings(userId: string): Promise<void> {
       deletedAt: null,
     }
     await db.meetings.put(merged)
+  }
+}
+
+// --- AI suggestions, decisions, action items (Phase 4) ------------------
+// Push-only in this phase — see ADR 0008's "known scope trim". None of
+// these three tables need a user_id column: RLS scopes them through
+// meeting_id -> meetings.user_id, so the upserts below don't pass one.
+
+async function pushDirtySuggestions(): Promise<void> {
+  if (!supabase) return
+  const dirty = (await db.suggestions.toArray()).filter((s) => s.dirty === 1)
+
+  for (const suggestion of dirty) {
+    const { error } = await supabase.from('ai_suggestions').upsert({
+      id: suggestion.id,
+      meeting_id: suggestion.meetingId,
+      kind: suggestion.kind,
+      payload: suggestion.payload,
+      confidence: suggestion.confidence,
+      status: suggestion.status,
+      created_at: suggestion.createdAt,
+    })
+    if (!error) {
+      await db.suggestions.update(suggestion.id, { dirty: 0 })
+    }
+  }
+}
+
+async function pushDirtyDecisions(): Promise<void> {
+  if (!supabase) return
+  const dirty = (await db.decisions.toArray()).filter((d) => d.dirty === 1)
+
+  for (const decision of dirty) {
+    const { error } = await supabase.from('decisions').upsert({
+      id: decision.id,
+      meeting_id: decision.meetingId,
+      text: decision.text,
+      context: decision.context,
+      created_from_suggestion_id: decision.createdFromSuggestionId,
+      created_at: decision.createdAt,
+    })
+    if (!error) {
+      await db.decisions.update(decision.id, { dirty: 0 })
+    }
+  }
+}
+
+async function pushDirtyActionItems(): Promise<void> {
+  if (!supabase) return
+  const dirty = (await db.actionItems.toArray()).filter((a) => a.dirty === 1)
+
+  for (const actionItem of dirty) {
+    const { error } = await supabase.from('action_items').upsert({
+      id: actionItem.id,
+      meeting_id: actionItem.sourceMeetingId,
+      title: actionItem.title,
+      owner: actionItem.owner,
+      due_date: actionItem.dueDate,
+      status: actionItem.status,
+      confidence: actionItem.confidence,
+      created_from_suggestion_id: actionItem.createdFromSuggestionId,
+      created_at: actionItem.createdAt,
+    })
+    if (!error) {
+      await db.actionItems.update(actionItem.id, { dirty: 0 })
+    }
   }
 }
 
