@@ -1,24 +1,31 @@
 import { useEffect, useState } from 'react'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
-import { listNotes, type LocalNote } from '../lib/db'
-import { relativeDate } from '../lib/format'
-import { IconPlus } from '../components/icons'
+import { listNotes, listVoiceNotes, type LocalNote, type LocalVoiceNote } from '../lib/db'
+import { relativeDate, formatDuration } from '../lib/format'
+import { IconDoc, IconMic, IconPlus } from '../components/icons'
 
 interface HomeProps {
   onOpenNote: (id: string) => void
+  onOpenVoiceNote: (id: string) => void
   onOpenNotesList: () => void
   onCapture: () => void
 }
 
-export default function Home({ onOpenNote, onOpenNotesList, onCapture }: HomeProps) {
+type RecentItem =
+  | { kind: 'note'; updatedAt: string; note: LocalNote }
+  | { kind: 'voice'; updatedAt: string; voiceNote: LocalVoiceNote }
+
+export default function Home({ onOpenNote, onOpenVoiceNote, onOpenNotesList, onCapture }: HomeProps) {
   const [notes, setNotes] = useState<LocalNote[]>([])
+  const [voiceNotes, setVoiceNotes] = useState<LocalVoiceNote[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    listNotes().then((n) => {
+    Promise.all([listNotes(), listVoiceNotes()]).then(([n, v]) => {
       if (cancelled) return
       setNotes(n)
+      setVoiceNotes(v)
       setLoaded(true)
     })
     return () => {
@@ -28,7 +35,13 @@ export default function Home({ onOpenNote, onOpenNotesList, onCapture }: HomePro
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
-  const recent = notes.slice(0, 4)
+
+  const items: RecentItem[] = [
+    ...notes.map((note): RecentItem => ({ kind: 'note', updatedAt: note.updatedAt, note })),
+    ...voiceNotes.map((voiceNote): RecentItem => ({ kind: 'voice', updatedAt: voiceNote.updatedAt, voiceNote })),
+  ].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+  const recent = items.slice(0, 4)
+  const totalCount = notes.length + voiceNotes.length
 
   return (
     <div className="page">
@@ -46,9 +59,15 @@ export default function Home({ onOpenNote, onOpenNotesList, onCapture }: HomePro
         </div>
         <div className="hero-stats">
           <div className="hero-stat">
-            <span className="n">{notes.length}</span>
-            <span className="l">{notes.length === 1 ? 'Note' : 'Notes'}</span>
+            <span className="n">{totalCount}</span>
+            <span className="l">{totalCount === 1 ? 'Item' : 'Items'}</span>
           </div>
+          {voiceNotes.length > 0 && (
+            <div className="hero-stat">
+              <span className="n">{voiceNotes.length}</span>
+              <span className="l">{voiceNotes.length === 1 ? 'Voice note' : 'Voice notes'}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -64,12 +83,34 @@ export default function Home({ onOpenNote, onOpenNotesList, onCapture }: HomePro
 
         {recent.length > 0 && (
           <div className="group">
-            {recent.map((note) => (
-              <button key={note.id} className="row" type="button" onClick={() => onOpenNote(note.id)}>
-                <span className="t">{note.title || 'Untitled'}</span>
-                <span className="m">{relativeDate(note.updatedAt)}</span>
-              </button>
-            ))}
+            {recent.map((item) =>
+              item.kind === 'note' ? (
+                <button key={item.note.id} className="row" type="button" onClick={() => onOpenNote(item.note.id)}>
+                  <span className="t">
+                    <span className="voice-row-icon" style={{ marginRight: 6 }}>
+                      <IconDoc size={14} />
+                    </span>
+                    {item.note.title || 'Untitled'}
+                  </span>
+                  <span className="m">{relativeDate(item.note.updatedAt)}</span>
+                </button>
+              ) : (
+                <button
+                  key={item.voiceNote.id}
+                  className="row"
+                  type="button"
+                  onClick={() => onOpenVoiceNote(item.voiceNote.id)}
+                >
+                  <span className="t">
+                    <span className="voice-row-icon" style={{ marginRight: 6 }}>
+                      <IconMic size={14} />
+                    </span>
+                    Voice note · {formatDuration(item.voiceNote.durationSeconds)}
+                  </span>
+                  <span className="m">{relativeDate(item.voiceNote.updatedAt)}</span>
+                </button>
+              ),
+            )}
           </div>
         )}
 

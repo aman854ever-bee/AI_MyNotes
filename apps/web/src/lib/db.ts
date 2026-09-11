@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Note, Project } from '../types'
+import type { Note, Project, VoiceNote } from '../types'
 
 // Local-first: every note is created, edited and deleted here first, with
 // no network round trip — that's what "offline supported" (PRD Section 34)
@@ -16,15 +16,32 @@ export interface LocalProject extends Project {
   deletedAt: string | null
 }
 
+// The audio itself lives only in IndexedDB (as a Blob) until sync.ts uploads
+// it to Supabase Storage — `storagePath` is null until that happens.
+// `dirty` covers metadata (transcript, status, etc.); `audioDirty` tracks
+// the upload separately since the audio only ever needs to go up once.
+export interface LocalVoiceNote extends VoiceNote {
+  audioBlob: Blob | null
+  dirty: 0 | 1
+  audioDirty: 0 | 1
+  deletedAt: string | null
+}
+
 class MyNotesDB extends Dexie {
   notes!: Table<LocalNote, string>
   projects!: Table<LocalProject, string>
+  voiceNotes!: Table<LocalVoiceNote, string>
 
   constructor() {
     super('mynotes')
     this.version(1).stores({
       notes: 'id, updatedAt, dirty',
       projects: 'id, updatedAt, dirty',
+    })
+    this.version(2).stores({
+      notes: 'id, updatedAt, dirty',
+      projects: 'id, updatedAt, dirty',
+      voiceNotes: 'id, updatedAt, dirty',
     })
   }
 }
@@ -81,4 +98,57 @@ export async function getNote(id: string): Promise<LocalNote | undefined> {
 export async function listNotes(): Promise<LocalNote[]> {
   const all = await db.notes.toArray()
   return all.filter((n) => !n.deletedAt).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+}
+
+// --- Voice notes -----------------------------------------------------
+// Same local-first shape as notes: recorded and saved here first, synced
+// (audio upload + transcription) opportunistically by sync.ts/transcribe.ts.
+
+export interface CreateVoiceNoteInput {
+  audioBlob: Blob
+  durationSeconds: number
+  projectId?: string | null
+}
+
+export async function createVoiceNote(input: CreateVoiceNoteInput): Promise<LocalVoiceNote> {
+  const ts = nowIso()
+  const voiceNote: LocalVoiceNote = {
+    id: newId(),
+    projectId: input.projectId ?? null,
+    durationSeconds: input.durationSeconds,
+    audioBlob: input.audioBlob,
+    storagePath: null,
+    transcript: null,
+    summary: null,
+    status: 'recorded',
+    createdAt: ts,
+    updatedAt: ts,
+    dirty: 1,
+    audioDirty: 1,
+    deletedAt: null,
+  }
+  await db.voiceNotes.put(voiceNote)
+  return voiceNote
+}
+
+export type UpdateVoiceNoteInput = Partial<
+  Pick<LocalVoiceNote, 'transcript' | 'summary' | 'status' | 'storagePath' | 'audioDirty'>
+>
+
+export async function updateVoiceNote(id: string, patch: UpdateVoiceNoteInput): Promise<void> {
+  await db.voiceNotes.update(id, { ...patch, updatedAt: nowIso(), dirty: 1 })
+}
+
+export async function deleteVoiceNote(id: string): Promise<void> {
+  const ts = nowIso()
+  await db.voiceNotes.update(id, { deletedAt: ts, updatedAt: ts, dirty: 1 })
+}
+
+export async function getVoiceNote(id: string): Promise<LocalVoiceNote | undefined> {
+  return db.voiceNotes.get(id)
+}
+
+export async function listVoiceNotes(): Promise<LocalVoiceNote[]> {
+  const all = await db.voiceNotes.toArray()
+  return all.filter((v) => !v.deletedAt).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
 }

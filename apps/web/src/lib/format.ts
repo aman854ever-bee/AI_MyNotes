@@ -15,3 +15,10 @@ export function relativeDate(iso: string): string {
 
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
+
+export function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.round(totalSeconds))
+  const m = Math.floor(s / 60)
+  const rem = s % 60
+  return `${m}:${rem.toString().padStart(2, '0')}`
+}

@@ -8,11 +8,15 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import NoteEditor from './pages/NoteEditor'
 import Notes from './pages/Notes'
+import VoiceRecorder from './pages/VoiceRecorder'
+import VoiceNoteView from './pages/VoiceNoteView'
 
 type View =
   | { name: 'home' }
   | { name: 'notes' }
   | { name: 'editor'; noteId: string; from: 'home' | 'notes' }
+  | { name: 'record'; from: 'home' | 'notes' }
+  | { name: 'voice'; voiceNoteId: string; from: 'home' | 'notes' }
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -47,19 +51,33 @@ export default function App() {
     return <Login />
   }
 
+  function captureFrom(): 'home' | 'notes' {
+    return view.name === 'notes' ? 'notes' : 'home'
+  }
+
   async function handleTextNoteCapture() {
-    const from = view.name === 'notes' ? 'notes' : 'home'
+    const from = captureFrom()
     const note = await createNote({ title: '', content: '' })
     setCaptureOpen(false)
     setView({ name: 'editor', noteId: note.id, from })
   }
 
+  function handleVoiceNoteCapture() {
+    const from = captureFrom()
+    setCaptureOpen(false)
+    setView({ name: 'record', from })
+  }
+
+  function backTo(from: 'home' | 'notes') {
+    setView(from === 'notes' ? { name: 'notes' } : { name: 'home' })
+  }
+
   function backFromEditor() {
-    if (view.name === 'editor' && view.from === 'notes') {
-      setView({ name: 'notes' })
-    } else {
-      setView({ name: 'home' })
-    }
+    if (view.name === 'editor') backTo(view.from)
+  }
+
+  function backFromVoice() {
+    if (view.name === 'voice') backTo(view.from)
   }
 
   return (
@@ -67,6 +85,7 @@ export default function App() {
       {view.name === 'home' && (
         <Home
           onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'home' })}
+          onOpenVoiceNote={(id) => setView({ name: 'voice', voiceNoteId: id, from: 'home' })}
           onOpenNotesList={() => setView({ name: 'notes' })}
           onCapture={() => setCaptureOpen(true)}
         />
@@ -84,8 +103,23 @@ export default function App() {
         <NoteEditor noteId={view.noteId} onBack={backFromEditor} onDeleted={backFromEditor} />
       )}
 
+      {view.name === 'record' && (
+        <VoiceRecorder
+          onSaved={(id) => setView({ name: 'voice', voiceNoteId: id, from: view.from })}
+          onCancel={() => backTo(view.from)}
+        />
+      )}
+
+      {view.name === 'voice' && (
+        <VoiceNoteView voiceNoteId={view.voiceNoteId} onBack={backFromVoice} onDeleted={backFromVoice} />
+      )}
+
       {captureOpen && (
-        <CaptureSheet onClose={() => setCaptureOpen(false)} onTextNote={() => void handleTextNoteCapture()} />
+        <CaptureSheet
+          onClose={() => setCaptureOpen(false)}
+          onTextNote={() => void handleTextNoteCapture()}
+          onVoiceNote={handleVoiceNoteCapture}
+        />
       )}
     </>
   )

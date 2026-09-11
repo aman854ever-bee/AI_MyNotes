@@ -4,10 +4,11 @@ import { IconChevronRight, IconDoc, IconImage, IconMeeting, IconMic } from './ic
 interface CaptureSheetProps {
   onClose: () => void
   onTextNote: () => void
+  onVoiceNote: () => void
 }
 
-export default function CaptureSheet({ onClose, onTextNote }: CaptureSheetProps) {
-  const [soon, setSoon] = useState<'voice' | 'meeting' | null>(null)
+export default function CaptureSheet({ onClose, onTextNote, onVoiceNote }: CaptureSheetProps) {
+  const [soon, setSoon] = useState<'meeting' | null>(null)
 
   return (
     <>
@@ -29,7 +30,7 @@ export default function CaptureSheet({ onClose, onTextNote }: CaptureSheetProps)
           </span>
         </button>
 
-        <button className="opt" type="button" onClick={() => setSoon('voice')}>
+        <button className="opt" type="button" onClick={onVoiceNote}>
           <span className="opt-icon">
             <IconMic />
           </span>
@@ -41,7 +42,6 @@ export default function CaptureSheet({ onClose, onTextNote }: CaptureSheetProps)
             <IconChevronRight />
           </span>
         </button>
-        {soon === 'voice' && <p className="soon-note">Coming in a later phase (Phase 2 — Voice notes).</p>}
 
         <button className="opt" type="button" onClick={() => setSoon('meeting')}>
           <span className="opt-icon">

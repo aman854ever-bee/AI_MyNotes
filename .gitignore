@@ -8,3 +8,6 @@ dist-ssr/
 .DS_Store
 .vscode/*
 !.vscode/extensions.json
+
+# Screenshots this session sends back land here automatically
+Claude outputs/

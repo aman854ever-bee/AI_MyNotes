@@ -47,3 +47,17 @@ export interface Project {
   name: string
   createdAt: string
 }
+
+export type VoiceNoteStatus = 'recorded' | 'transcribing' | 'ready' | 'error'
+
+export interface VoiceNote {
+  id: string
+  projectId: string | null
+  durationSeconds: number
+  storagePath: string | null
+  transcript: string | null
+  summary: string | null
+  status: VoiceNoteStatus
+  createdAt: string
+  updatedAt: string
+}

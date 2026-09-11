@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient'
-import { db, type LocalNote } from './db'
+import { db, type LocalNote, type LocalVoiceNote } from './db'
 
 // Local-first, last-write-wins sync. Every note change already happened in
 // IndexedDB (db.ts) before this ever runs — this module's only job is
@@ -23,6 +23,8 @@ export async function syncNow(): Promise<void> {
 
     await pushDirtyNotes(userId)
     await pullRemoteNotes(userId)
+    await pushDirtyVoiceNotes(userId)
+    await pullRemoteVoiceNotes(userId)
   } catch (err) {
     console.error('[mynotes] sync failed', err)
   } finally {
@@ -92,6 +94,96 @@ async function pullRemoteNotes(userId: string): Promise<void> {
       deletedAt: null,
     }
     await db.notes.put(merged)
+  }
+}
+
+// --- Voice notes -----------------------------------------------------
+// Only metadata syncs (transcript, summary, status, duration) — the audio
+// itself stays on the device that recorded it in this phase (see ADR 0007
+// and the Phase 2 status notes). A voice note pulled onto another device
+// shows its transcript but plays back nowhere until audio backup ships.
+
+async function pushDirtyVoiceNotes(userId: string): Promise<void> {
+  if (!supabase) return
+  const dirty = (await db.voiceNotes.toArray()).filter((v) => v.dirty === 1)
+
+  for (const voiceNote of dirty) {
+    if (voiceNote.deletedAt) {
+      const { error } = await supabase.from('voice_notes').delete().eq('id', voiceNote.id)
+      if (error) continue
+      await db.voiceNotes.delete(voiceNote.id)
+      continue
+    }
+
+    const { error } = await supabase.from('voice_notes').upsert({
+      id: voiceNote.id,
+      user_id: userId,
+      project_id: voiceNote.projectId,
+      storage_path: voiceNote.storagePath,
+      duration_seconds: voiceNote.durationSeconds,
+      transcript: voiceNote.transcript,
+      summary: voiceNote.summary,
+      created_at: voiceNote.createdAt,
+      updated_at: voiceNote.updatedAt,
+    })
+    if (!error) {
+      await db.voiceNotes.update(voiceNote.id, { dirty: 0 })
+    }
+  }
+}
+
+interface RemoteVoiceNoteRow {
+  id: string
+  project_id: string | null
+  storage_path: string | null
+  duration_seconds: number | null
+  transcript: string | null
+  summary: string | null
+  created_at: string
+  updated_at: string
+}
+
+async function pullRemoteVoiceNotes(userId: string): Promise<void> {
+  if (!supabase) return
+  const { data, error } = await supabase.from('voice_notes').select('*').eq('user_id', userId)
+  if (error || !data) return
+
+  for (const row of data as RemoteVoiceNoteRow[]) {
+    const local = await db.voiceNotes.get(row.id)
+    if (local?.dirty === 1) continue
+    if (local && local.updatedAt >= row.updated_at) continue
+
+    if (local) {
+      // Never on this device: keep whatever local audio/status it already
+      // has and just take the newer metadata (typically a transcript that
+      // finished processing).
+      await db.voiceNotes.update(row.id, {
+        transcript: row.transcript,
+        summary: row.summary,
+        status: row.transcript ? 'ready' : local.status,
+        storagePath: row.storage_path,
+        updatedAt: row.updated_at,
+        dirty: 0,
+      })
+      continue
+    }
+
+    const merged: LocalVoiceNote = {
+      id: row.id,
+      projectId: row.project_id,
+      durationSeconds: row.duration_seconds ?? 0,
+      storagePath: row.storage_path,
+      transcript: row.transcript,
+      summary: row.summary,
+      status: row.transcript ? 'ready' : 'recorded',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      audioBlob: null,
+      dirty: 0,
+      audioDirty: 0,
+      deletedAt: null,
+    }
+    await db.voiceNotes.put(merged)
   }
 }
 
