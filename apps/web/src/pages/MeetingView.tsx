@@ -17,6 +17,7 @@ import {
 import { requestMeetingTranscription } from '../lib/transcribe'
 import { requestMeetingAnalysis } from '../lib/analyze'
 import { hasMeetingMinutesContent } from '../lib/meetingMinutes'
+import MeetingChat from '../components/MeetingChat'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { formatDuration } from '../lib/format'
 import { IconBack, IconClose } from '../components/icons'
@@ -286,6 +287,8 @@ export default function MeetingView({ meetingId, onBack, onDeleted, onOpenMinute
         )}
       </div>
 
+      {meeting.status === 'ready' && meeting.transcript && <MeetingChat meetingId={meeting.id} />}
+
       {meeting.status === 'ready' &&
         meeting.transcript &&
         (suggestions.length === 0 || suggestions.some((s) => s.status === 'pending')) && (
@@ -337,12 +340,6 @@ export default function MeetingView({ meetingId, onBack, onDeleted, onOpenMinute
         </div>
       )}
 
-      {hasMeetingMinutesContent({ meeting, decisions, actionItems }) && (
-        <button className="analyze-btn" type="button" onClick={onOpenMinutes}>
-          View meeting minutes
-        </button>
-      )}
-
       {meeting.summary && (
         <div>
           <p className="section-label">Summary</p>
@@ -378,6 +375,12 @@ export default function MeetingView({ meetingId, onBack, onDeleted, onOpenMinute
             ))}
           </div>
         </div>
+      )}
+
+      {hasMeetingMinutesContent({ meeting, decisions, actionItems }) && (
+        <button className="link-row" type="button" onClick={onOpenMinutes} style={{ justifyContent: 'flex-start', gap: 6 }}>
+          Generate meeting minutes document
+        </button>
       )}
 
       <button className="delete-btn" type="button" onClick={handleDelete}>
