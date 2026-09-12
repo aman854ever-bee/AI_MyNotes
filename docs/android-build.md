@@ -1,13 +1,37 @@
 # Building the MyNotes Android APK
 
 The native Android project (`apps/web/android/`) is already generated and
-committed — see ADR `0009-android-packaging.md`. What's left needs the
-Android SDK and Gradle to download from Google's servers, which only
-works from a normal internet connection (not from anything Claude can
-reach). Do this in a regular terminal on your own PC — not through the
-Claude session.
+committed — see ADR `0009-android-packaging.md`. Building it needs the
+Android SDK and Gradle to download from Google's servers, which the
+Claude session itself can't reach (its network egress is allow-listed to
+npm/GitHub only, confirmed by testing — `dl.google.com` comes back
+403'd). Two ways around that, below: let GitHub's own servers do the
+build, or do it on your own PC.
 
-## One-time setup
+## Option A — CI build, no local install needed (fastest for just testing)
+
+`.github/workflows/build-android-apk.yml` builds a debug APK on GitHub's
+runners (which have normal internet access) and hands it back as a
+downloadable file — no Android Studio, no SDK setup on your machine.
+
+1. Push the branch that has this workflow file, if you haven't yet.
+2. On GitHub: **Actions** tab → **Build Android APK** (left sidebar) →
+   **Run workflow** → pick the branch → **Run workflow**.
+3. Wait for the run to go green (a few minutes — first run is slower
+   while it caches the Android SDK/Gradle).
+4. Open the finished run, scroll to **Artifacts**, download
+   `mynotes-debug-apk` (a `.zip` containing `app-debug.apk`).
+5. Copy `app-debug.apk` onto your phone (email it to yourself, or a USB
+   file transfer) and tap it in a file manager — Android will ask to
+   allow installing from that source once.
+
+This is a debug build, signed with the shared Android debug key — fine
+to install on your own device, not for distributing to anyone else's.
+Same backend-configuration caveat as Option B below.
+
+## Option B — Your own PC (needed for a real signed release build later)
+
+### One-time setup
 
 1. **Install Android Studio**: https://developer.android.com/studio
    (Windows installer, default options are fine). This also installs the
@@ -15,7 +39,7 @@ Claude session.
    those separately.
 2. Open Android Studio once so it finishes its first-run SDK setup.
 
-## Every time you want a fresh APK
+### Every time you want a fresh APK
 
 From a normal terminal (PowerShell/CMD, not the Claude session):
 
@@ -64,7 +88,9 @@ else's without a proper release signing key later.
 
 ## The simpler alternative: skip the APK entirely
 
-MyNotes is a PWA. Once it's reachable over HTTPS somewhere (not yet set
-up — would need a hosting decision), Chrome on Android can install it
-straight from the browser via "Add to Home screen," no build step at
-all. Worth considering if a real signed APK isn't actually the goal.
+MyNotes is a PWA, and it's already live at
+https://aman854ever-bee.github.io/AI_MyNotes/ — open that in Chrome on
+your phone and use the menu's "Add to Home screen" / "Install app" to
+get an app icon with no build step at all. Same backend-configuration
+caveat as above. Worth doing first if a real APK isn't actually the goal
+— an installed PWA looks and behaves like an app.
