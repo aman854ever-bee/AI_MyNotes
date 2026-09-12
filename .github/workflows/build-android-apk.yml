@@ -1,0 +1,64 @@
+name: Build Android APK
+
+# On-demand debug APK build, for installing MyNotes on an Android phone
+# without needing Android Studio. GitHub's runners have normal internet
+# access (unlike the Claude session that authored this), so they can
+# reach Google's Android SDK servers — see docs/android-build.md for why
+# that matters and what this can't do (a signed release build).
+#
+# Run it: repo's Actions tab > "Build Android APK" > Run workflow, pick
+# the branch to build from. When it finishes, open the run and download
+# the "mynotes-debug-apk" artifact (a .zip containing app-debug.apk) from
+# the Artifacts section at the bottom of the summary page.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Build web app
+        working-directory: apps/web
+        env:
+          # No VITE_BASE_PATH here (unlike the Pages deploy) — the APK
+          # serves the built app from its own asset root, not a GitHub
+          # Pages subpath.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17' # required by Android Gradle Plugin 8.x
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Sync web build into the native Android project
+        working-directory: apps/web
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: apps/web/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mynotes-debug-apk
+          path: apps/web/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
