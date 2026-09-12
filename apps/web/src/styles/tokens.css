@@ -264,6 +264,33 @@ body {
 }
 .error { color: var(--crit); font-size: 13.5px; }
 
+.otp-lead { margin-top: 4px; }
+.otp-input {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  letter-spacing: 0.4em;
+  text-align: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+.otp-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.otp-resend-row { margin: 6px 0 0; }
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
+.link-btn:disabled { color: var(--ink-muted); cursor: default; text-decoration: none; }
+
+
 code {
   font-family: var(--font-mono);
   font-size: 0.88em;
