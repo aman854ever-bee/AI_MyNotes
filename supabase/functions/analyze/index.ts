@@ -1,22 +1,17 @@
 // Supabase Edge Function: analyze
 //
-// Takes a meeting transcript and asks Claude for a summary, candidate
+// Takes a meeting transcript and asks Gemini for a summary, candidate
 // decisions, and candidate action items — returned as plain JSON for the
 // client to turn into individually-approvable suggestions (ADR 0008,
-// PRD Section 19: AI suggests, the user approves each one, nothing here
-// is a fact on its own).
+// ADR 0013, PRD Section 19: AI suggests, the user approves each one,
+// nothing here is a fact on its own).
 //
 // Deploy:   supabase functions deploy analyze
-// Secret:   supabase secrets set ANTHROPIC_API_KEY=your-key-here
-// Model:    optionally supabase secrets set ANTHROPIC_MODEL=... to override
-//           the default below — Claude's knowledge cutoff means the model
-//           ID picked here may not be current by the time this deploys;
-//           check https://docs.claude.com/en/docs/about-claude/models for
-//           the current recommended fast/cheap model and update either the
-//           secret or the fallback string if the default 404s.
+// Secret:   supabase secrets set GEMINI_API_KEY=your-key-here
+// Model:    see supabase/functions/_shared/gemini.ts for the default and
+//           how to override it.
 
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-3-5-haiku-20241022'
+import { callGemini, GeminiApiError, isGeminiConfigured } from '../_shared/gemini.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,8 +49,8 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405)
   }
-  if (!ANTHROPIC_API_KEY) {
-    console.error('[analyze] ANTHROPIC_API_KEY is not set — run `supabase secrets set ANTHROPIC_API_KEY=...`')
+  if (!isGeminiConfigured()) {
+    console.error('[analyze] GEMINI_API_KEY is not set — run `supabase secrets set GEMINI_API_KEY=...`')
     return json({ error: 'Analysis is not configured on the server yet' }, 500)
   }
 
@@ -82,33 +77,17 @@ Deno.serve(async (req: Request) => {
     .join('\n')
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userContent }],
-      }),
+    const { text } = await callGemini({
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userContent }],
+      maxOutputTokens: 1024,
+      jsonMode: true,
     })
-
-    if (!response.ok) {
-      const detail = await response.text()
-      console.error('[analyze] Anthropic API error', response.status, detail)
-      return json({ error: 'The analysis provider returned an error' }, 502)
-    }
-
-    const result = await response.json()
-    const text: string = result?.content?.[0]?.text ?? ''
 
     let parsed: { summary?: string; decisions?: unknown[]; actionItems?: unknown[] }
     try {
-      // Strip a ```json fence if the model added one despite instructions.
+      // Strip a ```json fence if the model added one despite instructions
+      // and the JSON response mime type.
       const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '')
       parsed = JSON.parse(cleaned)
     } catch (parseErr) {
@@ -122,6 +101,10 @@ Deno.serve(async (req: Request) => {
       actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
     })
   } catch (err) {
+    if (err instanceof GeminiApiError) {
+      console.error('[analyze] Gemini API error', err.status, err.detail)
+      return json({ error: 'The analysis provider returned an error' }, 502)
+    }
     console.error('[analyze] unexpected error', err)
     return json({ error: 'Unexpected server error' }, 500)
   }

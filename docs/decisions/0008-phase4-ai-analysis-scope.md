@@ -4,6 +4,8 @@ Date: 2026-09-11 · Status: Accepted (decided autonomously — Aman asked Claude
 to proceed through Phase 4 unattended and make the calls that would
 normally be discussed; flagged here for review rather than held back)
 
+**Superseded in part by ADR 0013** (2026-09-12): the "Engine" section below named the Anthropic API; `analyze` and `chat` now run on Gemini instead. The rest of this ADR (scope, manual trigger, per-suggestion approval) still stands unchanged.
+
 ## Decision
 Phase 4 adds AI analysis of **meeting** transcripts only — not voice notes.
 The `ai_suggestions` / `decisions` / `action_items` tables (from the Phase 0

@@ -8,11 +8,10 @@
 // explicitly user-triggered export, not something this function produces.
 //
 // Deploy:   supabase functions deploy chat
-// Secret:   reuses ANTHROPIC_API_KEY (same as the analyze function)
-// Model:    reuses ANTHROPIC_MODEL if set, same default fallback as analyze
+// Secret:   supabase secrets set GEMINI_API_KEY=your-key-here (same secret
+//           as the analyze function — see supabase/functions/_shared/gemini.ts)
 
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-3-5-haiku-20241022'
+import { callGemini, GeminiApiError, isGeminiConfigured } from '../_shared/gemini.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,8 +77,8 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405)
   }
-  if (!ANTHROPIC_API_KEY) {
-    console.error('[chat] ANTHROPIC_API_KEY is not set — run `supabase secrets set ANTHROPIC_API_KEY=...`')
+  if (!isGeminiConfigured()) {
+    console.error('[chat] GEMINI_API_KEY is not set — run `supabase secrets set GEMINI_API_KEY=...`')
     return json({ error: 'Chat is not configured on the server yet' }, 500)
   }
 
@@ -100,32 +99,18 @@ Deno.serve(async (req: Request) => {
   const history = payload.messages.slice(-MAX_HISTORY_MESSAGES)
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 700,
-        system: buildSystemPrompt(payload),
-        messages: history.map((m) => ({ role: m.role, content: m.content })),
-      }),
+    const { text: reply } = await callGemini({
+      system: buildSystemPrompt(payload),
+      messages: history.map((m) => ({ role: m.role, content: m.content })),
+      maxOutputTokens: 700,
     })
-
-    if (!response.ok) {
-      const detail = await response.text()
-      console.error('[chat] Anthropic API error', response.status, detail)
-      return json({ error: 'The chat provider returned an error' }, 502)
-    }
-
-    const result = await response.json()
-    const reply: string = result?.content?.[0]?.text ?? ''
 
     return json({ reply })
   } catch (err) {
+    if (err instanceof GeminiApiError) {
+      console.error('[chat] Gemini API error', err.status, err.detail)
+      return json({ error: 'The chat provider returned an error' }, 502)
+    }
     console.error('[chat] unexpected error', err)
     return json({ error: 'Unexpected server error' }, 500)
   }
