@@ -382,3 +382,31 @@ code {
 }
 .suggestion-approve { background: var(--accent); color: var(--accent-ink); }
 .suggestion-ignore { background: var(--surface-2); color: var(--ink-muted); }
+
+/* Meeting minutes */
+.minutes-actions { display: flex; gap: 6px; }
+.minutes-action-btn {
+  font-family: var(--font-body); font-weight: 600; font-size: 12.5px; color: var(--accent);
+  background: var(--accent-soft); border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer;
+}
+.minutes-doc { display: flex; flex-direction: column; gap: 4px; }
+.minutes-title { font-family: var(--font-head); font-weight: 600; font-size: 24px; line-height: 1.25; margin: 0; }
+.minutes-attendees { font-size: 14.5px; margin: 10px 0 0; }
+.minutes-section { margin-top: 22px; }
+.minutes-section h2 {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-muted); margin: 0 0 10px; font-weight: 600;
+}
+.minutes-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.minutes-list li { font-size: 15px; line-height: 1.55; }
+.minutes-actions-list li { display: flex; align-items: flex-start; gap: 10px; }
+.minutes-check {
+  width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--line); flex: none; margin-top: 3px;
+}
+.minutes-check.done { background: var(--accent); border-color: var(--accent); }
+
+@media print {
+  .minutes-no-print { display: none !important; }
+  .minutes-page { max-width: none; padding: 0; }
+  body { background: #fff; color: #000; }
+}

@@ -16,6 +16,7 @@ import {
 } from '../lib/db'
 import { requestMeetingTranscription } from '../lib/transcribe'
 import { requestMeetingAnalysis } from '../lib/analyze'
+import { hasMeetingMinutesContent } from '../lib/meetingMinutes'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { formatDuration } from '../lib/format'
 import { IconBack, IconClose } from '../components/icons'
@@ -24,11 +25,12 @@ interface MeetingViewProps {
   meetingId: string
   onBack: () => void
   onDeleted: () => void
+  onOpenMinutes: () => void
 }
 
 type Status = 'loading' | 'ready' | 'not-found'
 
-export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingViewProps) {
+export default function MeetingView({ meetingId, onBack, onDeleted, onOpenMinutes }: MeetingViewProps) {
   const [status, setStatus] = useState<Status>('loading')
   const [meeting, setMeeting] = useState<LocalMeeting | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -333,6 +335,12 @@ export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingVie
             </div>
           )}
         </div>
+      )}
+
+      {hasMeetingMinutesContent({ meeting, decisions, actionItems }) && (
+        <button className="analyze-btn" type="button" onClick={onOpenMinutes}>
+          View meeting minutes
+        </button>
       )}
 
       {meeting.summary && (
