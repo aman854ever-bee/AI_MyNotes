@@ -1,0 +1,66 @@
+name: Deploy to GitHub Pages
+
+# Builds apps/web and publishes it to GitHub Pages on every push to
+# master. Pages must be switched to "GitHub Actions" as its source once
+# (Settings > Pages > Build and deployment > Source) — see
+# docs/github-pages.md for the one-time setup.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Build
+        working-directory: apps/web
+        env:
+          # Serves correctly from https://<user>.github.io/<repo>/ whatever
+          # the repo is named — see vite.config.ts.
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # Optional: set these as repo secrets (Settings > Secrets and
+          # variables > Actions) once Supabase is provisioned, to get a
+          # fully working deploy instead of local-only mode. Safe to leave
+          # unset for now — the app just runs without a backend.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
