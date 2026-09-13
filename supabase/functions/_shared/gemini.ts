@@ -18,7 +18,7 @@
 // app ever handles someone else's meeting content, not just Aman's own.
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
-const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash'
+const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-3.6-flash'
 
 export function isGeminiConfigured(): boolean {
   return Boolean(GEMINI_API_KEY)
