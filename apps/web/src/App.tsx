@@ -13,6 +13,8 @@ import VoiceNoteView from './pages/VoiceNoteView'
 import MeetingRecorder from './pages/MeetingRecorder'
 import MeetingView from './pages/MeetingView'
 import MeetingMinutes from './pages/MeetingMinutes'
+import CalendarSettings from './pages/CalendarSettings'
+import { captureLinkedCalendarTokens } from './lib/calendar'
 
 type View =
   | { name: 'home' }
@@ -23,6 +25,7 @@ type View =
   | { name: 'record-meeting'; from: 'home' | 'notes' }
   | { name: 'meeting'; meetingId: string; from: 'home' | 'notes' }
   | { name: 'meeting-minutes'; meetingId: string; from: 'home' | 'notes' }
+  | { name: 'calendar-settings' }
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -41,6 +44,7 @@ export default function App() {
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession)
+      if (nextSession) void captureLinkedCalendarTokens(nextSession)
     })
     return () => sub.subscription.unsubscribe()
   }, [])
@@ -105,6 +109,7 @@ export default function App() {
           onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'home' })}
           onOpenNotesList={() => setView({ name: 'notes' })}
           onCapture={() => setCaptureOpen(true)}
+          onOpenCalendarSettings={() => setView({ name: 'calendar-settings' })}
         />
       )}
 
@@ -153,6 +158,8 @@ export default function App() {
           onBack={() => setView({ name: 'meeting', meetingId: view.meetingId, from: view.from })}
         />
       )}
+
+      {view.name === 'calendar-settings' && <CalendarSettings onBack={() => setView({ name: 'home' })} />}
 
       {captureOpen && (
         <CaptureSheet
