@@ -11,3 +11,6 @@ dist-ssr/
 
 # Screenshots this session sends back land here automatically
 Claude outputs/
+
+# Supabase CLI local cache/state - machine-specific, not project config
+supabase/.temp/
