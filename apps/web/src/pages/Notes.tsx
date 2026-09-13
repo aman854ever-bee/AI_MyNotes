@@ -4,7 +4,7 @@ import { relativeDate } from '../lib/format'
 import { IconBack, IconPlus, IconSearch } from '../components/icons'
 
 interface NotesProps {
-  onBack: () => void
+  onBack?: () => void
   onOpenNote: (id: string) => void
   onCapture: () => void
 }
@@ -42,9 +42,13 @@ export default function Notes({ onBack, onOpenNote, onCapture }: NotesProps) {
   return (
     <div className="page">
       <div className="topbar">
-        <button className="icon-btn" type="button" onClick={onBack} aria-label="Back">
-          <IconBack />
-        </button>
+        {onBack ? (
+          <button className="icon-btn" type="button" onClick={onBack} aria-label="Back">
+            <IconBack />
+          </button>
+        ) : (
+          <span style={{ width: 38 }} />
+        )}
         <span style={{ fontFamily: 'var(--font-head)', fontWeight: 600, fontSize: 20 }}>Notes</span>
         <span style={{ width: 38 }} />
       </div>

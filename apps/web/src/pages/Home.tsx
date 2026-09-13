@@ -10,7 +10,6 @@ interface HomeProps {
   onOpenMeeting: (id: string) => void
   onOpenNotesList: () => void
   onCapture: () => void
-  onOpenCalendarSettings: () => void
 }
 
 type RecentItem =
@@ -24,7 +23,6 @@ export default function Home({
   onOpenMeeting,
   onOpenNotesList,
   onCapture,
-  onOpenCalendarSettings,
 }: HomeProps) {
   const [notes, setNotes] = useState<LocalNote[]>([])
   const [voiceNotes, setVoiceNotes] = useState<LocalVoiceNote[]>([])
@@ -89,10 +87,6 @@ export default function Home({
           )}
         </div>
       </div>
-
-      <button className="link-row" type="button" onClick={onOpenCalendarSettings}>
-        Connect a calendar
-      </button>
 
       <div>
         <p className="section-label">Recent</p>

@@ -12,12 +12,7 @@ import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { IconBack } from '../components/icons'
 
 interface CalendarSettingsProps {
-  onBack: () => void
-}
-
-const PROVIDER_LABEL: Record<CalendarAccount['provider'], string> = {
-  google: 'Google Calendar',
-  microsoft: 'Microsoft Teams / Outlook',
+  onBack?: () => void
 }
 
 export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
@@ -70,11 +65,13 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
 
   return (
     <div className="page">
-      <div className="topbar">
-        <button className="icon-btn" type="button" onClick={onBack} aria-label="Back">
-          <IconBack />
-        </button>
-      </div>
+      {onBack && (
+        <div className="topbar">
+          <button className="icon-btn" type="button" onClick={onBack} aria-label="Back">
+            <IconBack />
+          </button>
+        </div>
+      )}
 
       <h1 className="title-input" style={{ pointerEvents: 'none' }}>
         Connected calendars
