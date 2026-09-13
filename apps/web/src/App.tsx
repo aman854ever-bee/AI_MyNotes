@@ -4,10 +4,14 @@ import { supabase, isSupabaseConfigured } from './lib/supabaseClient'
 import { syncNow, watchConnectivity } from './lib/sync'
 import { createNote } from './lib/db'
 import CaptureSheet from './components/CaptureSheet'
+import AppShell, { type Section } from './components/AppShell'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import NoteEditor from './pages/NoteEditor'
 import Notes from './pages/Notes'
+import Calendar from './pages/Calendar'
+import Connect from './pages/Connect'
+import Profile from './pages/Profile'
 import VoiceRecorder from './pages/VoiceRecorder'
 import VoiceNoteView from './pages/VoiceNoteView'
 import MeetingRecorder from './pages/MeetingRecorder'
@@ -15,19 +19,18 @@ import MeetingView from './pages/MeetingView'
 import MeetingMinutes from './pages/MeetingMinutes'
 
 type View =
-  | { name: 'home' }
-  | { name: 'notes' }
-  | { name: 'editor'; noteId: string; from: 'home' | 'notes' }
-  | { name: 'record'; from: 'home' | 'notes' }
-  | { name: 'voice'; voiceNoteId: string; from: 'home' | 'notes' }
-  | { name: 'record-meeting'; from: 'home' | 'notes' }
-  | { name: 'meeting'; meetingId: string; from: 'home' | 'notes' }
-  | { name: 'meeting-minutes'; meetingId: string; from: 'home' | 'notes' }
+  | { name: 'section'; section: Section }
+  | { name: 'editor'; noteId: string; from: Section }
+  | { name: 'record'; from: Section }
+  | { name: 'voice'; voiceNoteId: string; from: Section }
+  | { name: 'record-meeting'; from: Section }
+  | { name: 'meeting'; meetingId: string; from: Section }
+  | { name: 'meeting-minutes'; meetingId: string; from: Section }
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [checked, setChecked] = useState(false)
-  const [view, setView] = useState<View>({ name: 'home' })
+  const [view, setView] = useState<View>({ name: 'section', section: 'dashboard' })
   const [captureOpen, setCaptureOpen] = useState(false)
 
   useEffect(() => {
@@ -57,8 +60,8 @@ export default function App() {
     return <Login />
   }
 
-  function captureFrom(): 'home' | 'notes' {
-    return view.name === 'notes' ? 'notes' : 'home'
+  function captureFrom(): Section {
+    return view.name === 'section' ? view.section : 'dashboard'
   }
 
   async function handleTextNoteCapture() {
@@ -80,8 +83,12 @@ export default function App() {
     setView({ name: 'record-meeting', from })
   }
 
-  function backTo(from: 'home' | 'notes') {
-    setView(from === 'notes' ? { name: 'notes' } : { name: 'home' })
+  function goToSection(section: Section) {
+    setView({ name: 'section', section })
+  }
+
+  function backTo(from: Section) {
+    setView({ name: 'section', section: from })
   }
 
   function backFromEditor() {
@@ -96,26 +103,46 @@ export default function App() {
     if (view.name === 'meeting') backTo(view.from)
   }
 
+  if (view.name === 'section') {
+    return (
+      <>
+        <AppShell active={view.section} onNavigate={goToSection}>
+          {view.section === 'dashboard' && (
+            <Home
+              onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'dashboard' })}
+              onOpenVoiceNote={(id) => setView({ name: 'voice', voiceNoteId: id, from: 'dashboard' })}
+              onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'dashboard' })}
+              onOpenNotesList={() => goToSection('notes')}
+              onCapture={() => setCaptureOpen(true)}
+            />
+          )}
+
+          {view.section === 'notes' && (
+            <Notes
+              onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'notes' })}
+              onCapture={() => setCaptureOpen(true)}
+            />
+          )}
+
+          {view.section === 'calendar' && <Calendar />}
+          {view.section === 'connect' && <Connect />}
+          {view.section === 'profile' && <Profile session={session} />}
+        </AppShell>
+
+        {captureOpen && (
+          <CaptureSheet
+            onClose={() => setCaptureOpen(false)}
+            onTextNote={() => void handleTextNoteCapture()}
+            onVoiceNote={handleVoiceNoteCapture}
+            onMeeting={handleMeetingCapture}
+          />
+        )}
+      </>
+    )
+  }
+
   return (
     <>
-      {view.name === 'home' && (
-        <Home
-          onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'home' })}
-          onOpenVoiceNote={(id) => setView({ name: 'voice', voiceNoteId: id, from: 'home' })}
-          onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'home' })}
-          onOpenNotesList={() => setView({ name: 'notes' })}
-          onCapture={() => setCaptureOpen(true)}
-        />
-      )}
-
-      {view.name === 'notes' && (
-        <Notes
-          onBack={() => setView({ name: 'home' })}
-          onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'notes' })}
-          onCapture={() => setCaptureOpen(true)}
-        />
-      )}
-
       {view.name === 'editor' && (
         <NoteEditor noteId={view.noteId} onBack={backFromEditor} onDeleted={backFromEditor} />
       )}
