@@ -14,6 +14,7 @@ import MeetingRecorder from './pages/MeetingRecorder'
 import MeetingView from './pages/MeetingView'
 import CalendarSettings from './pages/CalendarSettings'
 import { captureLinkedCalendarTokens } from './lib/calendar'
+import { registerOAuthDeepLinkListener } from './lib/capacitorAuth'
 
 type View =
   | { name: 'home' }
@@ -36,6 +37,10 @@ export default function App() {
       setChecked(true)
       return
     }
+    // Native-only (spike/capacitor-oauth): completes the OAuth round-trip
+    // from a deep-link callback instead of a WebView redirect — see
+    // lib/capacitorAuth.ts. No-op on web.
+    registerOAuthDeepLinkListener()
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setChecked(true)
