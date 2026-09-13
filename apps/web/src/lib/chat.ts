@@ -1,8 +1,8 @@
 import { supabase } from './supabaseClient'
 import { getMeeting, listDecisionsForMeeting, listActionItemsForMeeting } from './db'
 
-// Calls the `chat` Edge Function (same ANTHROPIC_API_KEY as analyze — ADR
-// 0007) so the user can ask free-form questions about a meeting instead of
+// Calls the `chat` Edge Function (same GEMINI_API_KEY as analyze — ADR
+// 0013) so the user can ask free-form questions about a meeting instead of
 // only reading a generated document. Nothing here is written back to the
 // meeting's own data — it's just a conversation grounded in what's already
 // there (transcript, summary, decisions, action items).
