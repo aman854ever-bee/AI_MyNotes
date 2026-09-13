@@ -12,6 +12,7 @@ import VoiceRecorder from './pages/VoiceRecorder'
 import VoiceNoteView from './pages/VoiceNoteView'
 import MeetingRecorder from './pages/MeetingRecorder'
 import MeetingView from './pages/MeetingView'
+import MeetingMinutes from './pages/MeetingMinutes'
 
 type View =
   | { name: 'home' }
@@ -21,6 +22,7 @@ type View =
   | { name: 'voice'; voiceNoteId: string; from: 'home' | 'notes' }
   | { name: 'record-meeting'; from: 'home' | 'notes' }
   | { name: 'meeting'; meetingId: string; from: 'home' | 'notes' }
+  | { name: 'meeting-minutes'; meetingId: string; from: 'home' | 'notes' }
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -137,7 +139,19 @@ export default function App() {
       )}
 
       {view.name === 'meeting' && (
-        <MeetingView meetingId={view.meetingId} onBack={backFromMeeting} onDeleted={backFromMeeting} />
+        <MeetingView
+          meetingId={view.meetingId}
+          onBack={backFromMeeting}
+          onDeleted={backFromMeeting}
+          onOpenMinutes={() => setView({ name: 'meeting-minutes', meetingId: view.meetingId, from: view.from })}
+        />
+      )}
+
+      {view.name === 'meeting-minutes' && (
+        <MeetingMinutes
+          meetingId={view.meetingId}
+          onBack={() => setView({ name: 'meeting', meetingId: view.meetingId, from: view.from })}
+        />
       )}
 
       {captureOpen && (

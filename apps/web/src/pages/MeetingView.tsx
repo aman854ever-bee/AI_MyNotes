@@ -16,6 +16,8 @@ import {
 } from '../lib/db'
 import { requestMeetingTranscription } from '../lib/transcribe'
 import { requestMeetingAnalysis } from '../lib/analyze'
+import { hasMeetingMinutesContent } from '../lib/meetingMinutes'
+import MeetingChat from '../components/MeetingChat'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { formatDuration } from '../lib/format'
 import { IconBack, IconClose } from '../components/icons'
@@ -24,11 +26,12 @@ interface MeetingViewProps {
   meetingId: string
   onBack: () => void
   onDeleted: () => void
+  onOpenMinutes: () => void
 }
 
 type Status = 'loading' | 'ready' | 'not-found'
 
-export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingViewProps) {
+export default function MeetingView({ meetingId, onBack, onDeleted, onOpenMinutes }: MeetingViewProps) {
   const [status, setStatus] = useState<Status>('loading')
   const [meeting, setMeeting] = useState<LocalMeeting | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -284,6 +287,8 @@ export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingVie
         )}
       </div>
 
+      {meeting.status === 'ready' && meeting.transcript && <MeetingChat meetingId={meeting.id} />}
+
       {meeting.status === 'ready' &&
         meeting.transcript &&
         (suggestions.length === 0 || suggestions.some((s) => s.status === 'pending')) && (
@@ -370,6 +375,12 @@ export default function MeetingView({ meetingId, onBack, onDeleted }: MeetingVie
             ))}
           </div>
         </div>
+      )}
+
+      {hasMeetingMinutesContent({ meeting, decisions, actionItems }) && (
+        <button className="link-row" type="button" onClick={onOpenMinutes} style={{ justifyContent: 'flex-start', gap: 6 }}>
+          Generate meeting minutes document
+        </button>
       )}
 
       <button className="delete-btn" type="button" onClick={handleDelete}>
