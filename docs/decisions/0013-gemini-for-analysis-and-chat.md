@@ -14,8 +14,8 @@ topping up Anthropic credit, Aman chose to move both functions to
 Google's Gemini API instead.
 
 ## Decision
-**Engine for `analyze` and `chat`: Gemini** (`gemini-2.5-flash` by
-default), replacing Anthropic entirely for these two functions.
+**Engine for `analyze` and `chat`: Gemini** (`gemini-3.6-flash` by
+default — see note below), replacing Anthropic entirely for these two functions.
 `transcribe` is unaffected — Deepgram continues to handle speech-to-text;
 this change only touches the transcript-in / structured-output-or-chat-out
 step.
@@ -52,9 +52,20 @@ functions once the switch is verified working.
   fallback, so the client-side code needs no changes.
 - `chat`'s request/response shape (`messages` in, `reply` out) is also
   unchanged for the same reason.
-- Not yet live-tested end-to-end against a real `GEMINI_API_KEY` as of
-  this ADR — Aman still needs to create the key and enter it into
-  Supabase. Verification is the next step once that's done.
+- **Live-tested end-to-end on 2026-09-13**: `analyze` on a sample
+  transcript (summary, decisions, and action items all extracted
+  correctly) and `chat` (correctly answered a grounded question about
+  the same transcript, including declining to invent facts not in
+  it). Both deployed via `supabase functions deploy` from Aman's own
+  machine (Node.js + the Supabase CLI, run via `npx`).
+- **Model correction during that first test**: the original default,
+  `gemini-2.5-flash`, returned a 404 — Google had retired it for new
+  API keys and pointed callers at `gemini-3.6-flash` instead (seen live
+  in the `analyze` function's Supabase logs, not something known ahead
+  of time). Fixed by changing the default in
+  `supabase/functions/_shared/gemini.ts`; the `GEMINI_MODEL` secret
+  remains available as a same-day override if this happens again
+  without needing a redeploy.
 - `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` secrets become unused by these
   two functions (left in place rather than removed, in case of a future
   rollback — no cost to leaving them set).
