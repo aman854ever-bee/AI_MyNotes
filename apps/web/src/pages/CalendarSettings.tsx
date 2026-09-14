@@ -5,11 +5,13 @@ import {
   listCalendarAccounts,
   listUpcomingCalendarEvents,
   syncCalendars,
+  toggleCalendarSync,
   type CalendarAccount,
   type CalendarEvent,
 } from '../lib/calendar'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
-import { IconBack } from '../components/icons'
+import { relativeDate } from '../lib/format'
+import { IconBack, IconGoogle, IconMicrosoft } from '../components/icons'
 
 interface CalendarSettingsProps {
   onBack?: () => void
@@ -20,6 +22,7 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [connecting, setConnecting] = useState<CalendarAccount['provider'] | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function reload() {
@@ -61,7 +64,14 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
     await reload()
   }
 
-  const googleConnected = accounts.some((a) => a.provider === 'google')
+  async function handleToggleSync(account: CalendarAccount) {
+    setTogglingId(account.id)
+    await toggleCalendarSync(account.id, !account.sync_enabled)
+    await reload()
+    setTogglingId(null)
+  }
+
+  const googleAccount = accounts.find((a) => a.provider === 'google') ?? null
 
   return (
     <div className="page">
@@ -74,7 +84,7 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
       )}
 
       <h1 className="title-input" style={{ pointerEvents: 'none' }}>
-        Connected calendars
+        Connect
       </h1>
       <p className="muted">
         Connect a calendar so meeting invites show up in MyNotes automatically, with reminders before each one
@@ -85,54 +95,106 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
 
       <div>
         <p className="section-label">Providers</p>
-        <div className="group">
-          <div className="row" style={{ cursor: 'default' }}>
-            <span className="t">Google Calendar / Google Meet</span>
-            <span className="m">
-              {googleConnected
-                ? `Connected${accounts.find((a) => a.provider === 'google')?.provider_email ? ` · ${accounts.find((a) => a.provider === 'google')?.provider_email}` : ''}`
-                : 'Not connected'}
+
+        <div className="provider-card">
+          <div className="provider-card-head">
+            <span className="provider-icon">
+              <IconGoogle size={20} />
+            </span>
+            <div className="provider-info">
+              <div className="provider-name">Google Calendar / Google Meet</div>
+              <div className="provider-detail">
+                {googleAccount
+                  ? [
+                      googleAccount.provider_email,
+                      googleAccount.last_synced_at
+                        ? `Last synced ${relativeDate(googleAccount.last_synced_at)}`
+                        : 'Not synced yet',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  : 'Not connected'}
+              </div>
+            </div>
+            <span
+              className={
+                !googleAccount
+                  ? 'status-pill not-connected'
+                  : googleAccount.sync_enabled
+                    ? 'status-pill connected'
+                    : 'status-pill paused'
+              }
+            >
+              {!googleAccount ? 'Not connected' : googleAccount.sync_enabled ? 'Connected' : 'Paused'}
             </span>
           </div>
-          <div className="row" style={{ cursor: 'default' }}>
-            <span className="t">Microsoft Teams / Outlook</span>
-            <span className="m">Coming soon</span>
-          </div>
-        </div>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-          {!googleConnected && (
-            <button
-              className="analyze-btn"
-              type="button"
-              style={{ width: 'auto', padding: '10px 16px' }}
-              disabled={connecting === 'google' || !isSupabaseConfigured}
-              onClick={() => void handleConnect('google')}
-            >
-              {connecting === 'google' ? 'Redirecting…' : 'Connect Google Calendar'}
-            </button>
-          )}
-          {googleConnected && (
-            <>
+          <div className="provider-card-actions">
+            {!googleAccount && (
               <button
                 className="analyze-btn"
                 type="button"
                 style={{ width: 'auto', padding: '10px 16px' }}
-                disabled={syncing}
-                onClick={() => void handleSync()}
+                disabled={connecting === 'google' || !isSupabaseConfigured}
+                onClick={() => void handleConnect('google')}
               >
-                {syncing ? 'Syncing…' : 'Sync now'}
+                {connecting === 'google' ? 'Redirecting…' : 'Connect Google Calendar'}
               </button>
+            )}
+            {googleAccount && (
+              <>
+                <button
+                  className="analyze-btn"
+                  type="button"
+                  style={{ width: 'auto', padding: '10px 16px' }}
+                  disabled={syncing}
+                  onClick={() => void handleSync()}
+                >
+                  {syncing ? 'Syncing…' : 'Sync now'}
+                </button>
+                <button className="suggestion-ignore" type="button" onClick={() => void handleDisconnect(googleAccount.id)}>
+                  Disconnect
+                </button>
+              </>
+            )}
+          </div>
+
+          {googleAccount && (
+            <div className="sync-toggle-row">
+              <div>
+                <div className="sync-toggle-label">Sync automatically</div>
+                <div className="sync-toggle-sub">
+                  {googleAccount.sync_enabled
+                    ? 'Included next time you tap "Sync now".'
+                    : 'Paused — skipped until you turn this back on.'}
+                </div>
+              </div>
               <button
-                className="suggestion-ignore"
                 type="button"
-                onClick={() => void handleDisconnect(accounts.find((a) => a.provider === 'google')!.id)}
-              >
-                Disconnect
-              </button>
-            </>
+                role="switch"
+                aria-checked={googleAccount.sync_enabled}
+                aria-label="Sync automatically"
+                className={googleAccount.sync_enabled ? 'sync-toggle on' : 'sync-toggle'}
+                disabled={togglingId === googleAccount.id}
+                onClick={() => void handleToggleSync(googleAccount)}
+              />
+            </div>
           )}
         </div>
+
+        <div className="provider-card">
+          <div className="provider-card-head">
+            <span className="provider-icon">
+              <IconMicrosoft size={20} />
+            </span>
+            <div className="provider-info">
+              <div className="provider-name">Microsoft Teams / Outlook</div>
+              <div className="provider-detail">Needs an Azure AD app registration first (piece 6).</div>
+            </div>
+            <span className="status-pill coming-soon">Coming soon</span>
+          </div>
+        </div>
+
         {error && <p className="muted" style={{ marginTop: 8 }}>{error}</p>}
       </div>
 

@@ -172,3 +172,15 @@ export function IconGoogle({ size = 18, className }: IconProps) {
     </svg>
   )
 }
+
+export function IconMicrosoft({ size = 18, className }: IconProps) {
+  // Brand mark — real colors, not a stroke icon like the rest of this file.
+  return (
+    <svg width={size} height={size} viewBox="0 0 21 21" className={className}>
+      <rect fill="#F25022" x="1" y="1" width="9" height="9" />
+      <rect fill="#7FBA00" x="11" y="1" width="9" height="9" />
+      <rect fill="#00A4EF" x="1" y="11" width="9" height="9" />
+      <rect fill="#FFB900" x="11" y="11" width="9" height="9" />
+    </svg>
+  )
+}
