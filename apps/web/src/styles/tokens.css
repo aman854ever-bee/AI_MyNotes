@@ -233,6 +233,42 @@ body {
 .capture-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .capture-btn svg { width: 16px; height: 16px; }
 
+.google-signin-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 11px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+}
+.google-signin-btn:hover { background: var(--surface-2); }
+.google-signin-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.google-signin-btn:disabled { opacity: 0.6; cursor: default; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--line);
+}
+
 .auth-tabs {
   display: flex;
   gap: 4px;
