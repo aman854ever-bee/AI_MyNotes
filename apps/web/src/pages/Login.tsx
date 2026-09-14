@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { signInWithGoogle } from '../lib/googleSignIn'
+import { IconGoogle } from '../components/icons'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
@@ -17,6 +19,9 @@ export default function Login() {
   const [phone, setPhone] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [googleError, setGoogleError] = useState<string | null>(null)
 
   const [otp, setOtp] = useState('')
   const [verifying, setVerifying] = useState(false)
@@ -68,6 +73,18 @@ export default function Login() {
       return false
     }
     return true
+  }
+
+  async function handleGoogleSignIn() {
+    setGoogleError(null)
+    setGoogleLoading(true)
+    const result = await signInWithGoogle()
+    // On the web this line is normally never reached — the browser has
+    // already navigated away to Google by the time signInWithGoogle()
+    // resolves. It only runs when something went wrong before that redirect
+    // (e.g. Supabase rejected the request), or after openOAuthUrl() on native.
+    setGoogleLoading(false)
+    if (!result.ok) setGoogleError(result.message)
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -201,6 +218,19 @@ export default function Login() {
         <h1>MyNotes</h1>
         <p className="muted">Sign in with your email or phone — no password to remember.</p>
       </header>
+
+      <button
+        type="button"
+        className="google-signin-btn"
+        onClick={() => void handleGoogleSignIn()}
+        disabled={googleLoading}
+      >
+        <IconGoogle size={18} />
+        {googleLoading ? 'Opening Google…' : 'Continue with Google'}
+      </button>
+      {googleError && <p className="error">{googleError}</p>}
+
+      <div className="auth-divider"><span>or</span></div>
 
       <div className="auth-tabs" role="tablist" aria-label="Sign-in method">
         <button
