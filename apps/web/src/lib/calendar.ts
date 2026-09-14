@@ -21,6 +21,8 @@ export interface CalendarAccount {
   provider: CalendarProvider
   provider_email: string | null
   connected_at: string
+  sync_enabled: boolean
+  last_synced_at: string | null
 }
 
 export interface CalendarEvent {
@@ -107,13 +109,21 @@ export async function listCalendarAccounts(): Promise<CalendarAccount[]> {
   if (!supabase) return []
   const { data, error } = await supabase
     .from('calendar_accounts')
-    .select('id, provider, provider_email, connected_at')
+    .select('id, provider, provider_email, connected_at, sync_enabled, last_synced_at')
     .order('connected_at', { ascending: true })
   if (error) {
     console.error('[mynotes] failed to list calendar accounts', error)
     return []
   }
   return data ?? []
+}
+
+/** Pauses or resumes syncing for one connected account without
+ *  disconnecting it — calendar-sync skips any account with
+ *  sync_enabled = false. Requires migration 0006. */
+export async function toggleCalendarSync(accountId: string, enabled: boolean): Promise<void> {
+  if (!supabase) return
+  await supabase.from('calendar_accounts').update({ sync_enabled: enabled }).eq('id', accountId)
 }
 
 export async function disconnectCalendar(accountId: string): Promise<void> {

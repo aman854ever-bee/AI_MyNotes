@@ -34,6 +34,7 @@ interface CalendarAccountRow {
   user_id: string
   provider: 'google' | 'microsoft'
   refresh_token: string
+  sync_enabled: boolean
 }
 
 interface GoogleEvent {
@@ -119,7 +120,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: accounts, error: accountsError } = await supabase
     .from('calendar_accounts')
-    .select('id, user_id, provider, refresh_token')
+    .select('id, user_id, provider, refresh_token, sync_enabled')
 
   if (accountsError) {
     console.error('[calendar-sync] failed to load calendar_accounts', accountsError)
@@ -130,6 +131,7 @@ Deno.serve(async (req: Request) => {
 
   for (const account of (accounts ?? []) as CalendarAccountRow[]) {
     if (account.provider !== 'google') continue // Microsoft support lands in a later piece
+    if (!account.sync_enabled) continue // paused from the Connect page — leave stored events as-is
 
     const refreshed = await refreshGoogleAccessToken(account.refresh_token)
     if (!refreshed) continue
@@ -140,6 +142,7 @@ Deno.serve(async (req: Request) => {
         access_token: refreshed.accessToken,
         access_token_expires_at: new Date(Date.now() + refreshed.expiresIn * 1000).toISOString(),
         updated_at: new Date().toISOString(),
+        last_synced_at: new Date().toISOString(),
       })
       .eq('id', account.id)
 
