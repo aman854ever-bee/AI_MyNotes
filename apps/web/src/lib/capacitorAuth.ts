@@ -57,6 +57,10 @@ export async function openOAuthUrl(url: string): Promise<void> {
  *  callback URL Android hands back after the Custom Tab closes. */
 export function registerOAuthDeepLinkListener(): void {
   if (!isNativePlatform() || !supabase) return
+  // Captured in a local const so the null-check above narrows inside the
+  // closure below — TS doesn't carry that narrowing through a module-scope
+  // imported binding into a nested async callback.
+  const client = supabase
 
   void CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
     if (!url.startsWith(OAUTH_CALLBACK_URL)) return // not our callback — ignore
@@ -65,7 +69,7 @@ export function registerOAuthDeepLinkListener(): void {
       // Already closed by the OS in some flows — not an error.
     })
 
-    const { error } = await supabase.auth.exchangeCodeForSession(url)
+    const { error } = await client.auth.exchangeCodeForSession(url)
     if (error) {
       // Surfaced to the user via the normal onAuthStateChange-driven UI
       // (session stays null); logged here for whoever's watching device
