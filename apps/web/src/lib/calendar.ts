@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { isNativePlatform, oauthRedirectTo, openOAuthUrl } from './capacitorAuth'
 
 // Calendar integration client lib (ADR 0011). Connecting is
 // supabase.auth.linkIdentity() with extra OAuth scopes — the browser
@@ -38,19 +39,32 @@ function scopeFor(provider: CalendarProvider): string {
   return provider === 'google' ? GOOGLE_CALENDAR_SCOPE : MICROSOFT_CALENDAR_SCOPE
 }
 
-/** Kicks off the connect flow — redirects the browser to the provider. */
+/**
+ * Kicks off the connect flow.
+ *
+ * Web: supabase-js redirects the browser itself (unchanged behavior).
+ * Native (spike/capacitor-oauth): skipBrowserRedirect so we get the OAuth
+ * URL back instead of an automatic WebView navigation, then open it in a
+ * Custom Tab via openOAuthUrl() — see lib/capacitorAuth.ts for why the
+ * WebView-based redirect doesn't work reliably on Android.
+ */
 export async function connectCalendar(provider: CalendarProvider): Promise<{ ok: true } | { ok: false; message: string }> {
   if (!supabase) return { ok: false, message: 'Supabase is not configured yet.' }
-  const { error } = await supabase.auth.linkIdentity({
+  const native = isNativePlatform()
+  const { data, error } = await supabase.auth.linkIdentity({
     provider: provider === 'google' ? 'google' : 'azure',
     options: {
       scopes: scopeFor(provider),
       queryParams: provider === 'google' ? { access_type: 'offline', prompt: 'consent' } : { prompt: 'consent' },
-      redirectTo: window.location.origin + window.location.pathname,
+      redirectTo: oauthRedirectTo(),
+      skipBrowserRedirect: native,
     },
   })
   if (error) return { ok: false, message: error.message }
-  return { ok: true } // browser navigates away before this resolves, in practice
+  if (native && data?.url) {
+    await openOAuthUrl(data.url)
+  }
+  return { ok: true } // browser navigates away before this resolves, in practice (web) or the Custom Tab takes over (native)
 }
 
 /**

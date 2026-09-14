@@ -22,6 +22,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- spike/capacitor-oauth: deep-link callback for the calendar
+                 OAuth connect flow (Google/Microsoft via Supabase). Opened
+                 by lib/capacitorAuth.ts's Custom Tab redirect, handled by
+                 the appUrlOpen listener registered in App.tsx. Must also be
+                 added to Supabase Dashboard -> Authentication -> URL
+                 Configuration -> Redirect URLs: mynotes://oauth-callback -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mynotes" android:host="oauth-callback" />
+            </intent-filter>
+
         </activity>
 
         <provider
