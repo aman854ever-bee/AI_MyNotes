@@ -131,7 +131,7 @@ export default function App() {
             />
           )}
 
-          {view.section === 'calendar' && <Calendar />}
+          {view.section === 'calendar' && <Calendar onOpenConnect={() => goToSection('connect')} />}
           {view.section === 'connect' && <CalendarSettings />}
           {view.section === 'profile' && <Profile session={session} />}
         </AppShell>
