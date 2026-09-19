@@ -46,6 +46,14 @@ jobs:
           java-version: '17' # required by Android Gradle Plugin 8.x
 
       - uses: android-actions/setup-android@v3
+        with:
+          # Explicit package list, not this action's default. Left at its
+          # default, v3 tries to install the legacy "tools" package first —
+          # Google has removed "tools" from the SDK repository entirely, so
+          # `sdkmanager` now exits 1 before it gets to anything this project
+          # actually needs. platform-tools/platforms/build-tools versions
+          # match apps/web/android/variables.gradle's compileSdkVersion (34).
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
       - name: Sync web build into the native Android project
         working-directory: apps/web
