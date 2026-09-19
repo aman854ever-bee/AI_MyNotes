@@ -1259,6 +1259,232 @@ code {
 
 .m-card-lg { padding: 16px; }
 
+.m-header-action {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--m-primary);
+  cursor: pointer;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.m-header-action:hover { text-decoration: underline; }
+
+.m-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 44px;
+  padding: 0 14px;
+  background: var(--m-surface);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-card);
+  color: var(--m-muted);
+  flex: none;
+}
+.m-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--m-ink);
+  padding: 0;
+}
+.m-search input::placeholder { color: var(--m-muted); }
+
+/* Filter chips — horizontally scrollable so a long tag list never
+   forces the page itself sideways. */
+.m-chips {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -20px;
+  padding: 0 20px;
+  flex: none;
+}
+.m-chips::-webkit-scrollbar { display: none; }
+.m-chip {
+  flex: none;
+  background: var(--m-bg);
+  border: 1px solid var(--m-border);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--m-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.m-chip.active {
+  background: var(--m-primary);
+  border-color: var(--m-primary);
+  color: var(--m-primary-ink);
+}
+.m-chip:focus-visible { outline: 2px solid var(--m-primary); outline-offset: 1px; }
+
+/* Note editor (Figma node 4:4474) */
+.m-screen-editor { padding-bottom: 24px; }
+
+.m-save-state { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.m-save-pill {
+  background: var(--m-bg);
+  border: 1px solid var(--m-border);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--m-muted);
+}
+.m-save-pill.saved { color: var(--m-soft-green-ink); }
+.m-save-time { font-family: var(--font-body); font-size: 11px; color: var(--m-muted); }
+
+.m-editor {
+  background: var(--m-surface);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 280px;
+}
+.m-editor-title {
+  font-family: var(--font-body);
+  font-size: 24px;
+  line-height: 1.25;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--m-ink);
+  width: 100%;
+  padding: 0;
+}
+.m-editor-title::placeholder { color: var(--m-muted); }
+.m-editor-body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--m-ink);
+  width: 100%;
+  flex: 1 1 auto;
+  resize: none;
+  padding: 0;
+  min-height: 160px;
+}
+.m-editor-body::placeholder { color: var(--m-muted); }
+
+.m-chips-tags { margin: 0; padding: 0; flex-wrap: wrap; overflow: visible; }
+.m-chip-tag { display: inline-flex; align-items: center; gap: 6px; }
+.m-chip-tag button {
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  color: inherit;
+  cursor: pointer;
+}
+.m-tag-input {
+  width: 78px;
+  outline: none;
+  color: var(--m-ink);
+  background: var(--m-bg);
+}
+
+/* Formatting toolbar — the one dark control strip in the light app */
+.m-toolbar {
+  background: var(--m-dark);
+  border-radius: 15px;
+  height: 48px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+}
+.m-toolbar button {
+  background: none;
+  border: none;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--m-dark-muted);
+  cursor: pointer;
+  border-radius: 8px;
+}
+.m-toolbar button:hover { color: var(--m-dark-ink); background: rgba(255, 255, 255, 0.08); }
+.m-toolbar button:focus-visible { outline: 2px solid var(--m-teal); outline-offset: -2px; }
+
+.m-danger-link {
+  background: none;
+  border: none;
+  padding: 8px 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--crit);
+  cursor: pointer;
+  align-self: flex-start;
+}
+.m-danger-link:hover { text-decoration: underline; }
+
+/* Two-up highlight cards */
+.m-pin-grid { display: flex; gap: 10px; align-items: stretch; }
+.m-pin-card {
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--m-surface);
+  border-radius: var(--m-radius-card);
+  box-shadow: var(--m-shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  border: none;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+.m-pin-card.accent { background: var(--m-primary-soft); }
+.m-pin-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--m-primary);
+  margin: 0;
+}
+.m-pin-card.accent .m-pin-eyebrow { color: var(--m-primary); }
+.m-pin-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--m-ink);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.m-pin-snippet {
+  font-size: 11px;
+  color: var(--m-muted);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .m-avatar {
   width: 52px;
   height: 52px;

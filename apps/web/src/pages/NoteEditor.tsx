@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { getNote, updateNote, deleteNote, type LocalNote } from '../lib/db'
-import { IconBack, IconClose } from '../components/icons'
+import { relativeDate } from '../lib/format'
+import {
+  IconBack,
+  IconClose,
+  IconBold,
+  IconItalic,
+  IconList,
+  IconCheckSquare,
+  IconLink,
+} from '../components/icons'
 
 interface NoteEditorProps {
   noteId: string
@@ -9,15 +18,23 @@ interface NoteEditorProps {
 }
 
 type Status = 'loading' | 'ready' | 'not-found'
+type SaveState = 'saved' | 'saving'
+
+/** What each toolbar button does to the current selection. */
+type Format = 'bold' | 'italic' | 'list' | 'checklist' | 'link'
 
 export default function NoteEditor({ noteId, onBack, onDeleted }: NoteEditorProps) {
   const [status, setStatus] = useState<Status>('loading')
-  const [createdAt, setCreatedAt] = useState<string>('')
+  const [updatedAt, setUpdatedAt] = useState<string>('')
+  const [saveState, setSaveState] = useState<SaveState>('saved')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagDraft, setTagDraft] = useState('')
+  const [addingTag, setAddingTag] = useState(false)
+  const [shareNote, setShareNote] = useState<string | null>(null)
   const saveTimer = useRef<number | null>(null)
+  const contentRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -30,7 +47,7 @@ export default function NoteEditor({ noteId, onBack, onDeleted }: NoteEditorProp
       setTitle(n.title)
       setContent(n.content)
       setTags(n.tags)
-      setCreatedAt(n.createdAt)
+      setUpdatedAt(n.updatedAt)
       setStatus('ready')
     })
     return () => {
@@ -38,10 +55,20 @@ export default function NoteEditor({ noteId, onBack, onDeleted }: NoteEditorProp
     }
   }, [noteId])
 
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current)
+    }
+  }, [])
+
   function scheduleSave(patch: Partial<{ title: string; content: string }>) {
+    setSaveState('saving')
     if (saveTimer.current) window.clearTimeout(saveTimer.current)
     saveTimer.current = window.setTimeout(() => {
-      void updateNote(noteId, patch)
+      void updateNote(noteId, patch).then(() => {
+        setSaveState('saved')
+        setUpdatedAt(new Date().toISOString())
+      })
     }, 500)
   }
 
@@ -55,9 +82,53 @@ export default function NoteEditor({ noteId, onBack, onDeleted }: NoteEditorProp
     scheduleSave({ content: value })
   }
 
+  /**
+   * The design shows a rich-text toolbar. Notes are stored as plain text, so
+   * rather than pull in an editor library (and change the storage format),
+   * these wrap the selection in Markdown — which round-trips through the
+   * existing schema and stays readable if it's ever rendered elsewhere.
+   */
+  function applyFormat(format: Format) {
+    const el = contentRef.current
+    if (!el) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const selected = content.slice(start, end)
+    let replacement: string
+    let caretOffset: number
+
+    if (format === 'bold' || format === 'italic') {
+      const marker = format === 'bold' ? '**' : '*'
+      replacement = `${marker}${selected || (format === 'bold' ? 'bold text' : 'italic text')}${marker}`
+      caretOffset = marker.length
+    } else {
+      const prefix = format === 'list' ? '- ' : format === 'checklist' ? '- [ ] ' : ''
+      if (format === 'link') {
+        replacement = `[${selected || 'link text'}](url)`
+        caretOffset = 1
+      } else {
+        const lines = (selected || 'List item').split('\n')
+        replacement = lines.map((line) => `${prefix}${line}`).join('\n')
+        caretOffset = prefix.length
+      }
+    }
+
+    const next = content.slice(0, start) + replacement + content.slice(end)
+    handleContentChange(next)
+    // Put the caret back where the writer expects it: inside the markers when
+    // nothing was selected, after the inserted text when something was.
+    requestAnimationFrame(() => {
+      el.focus()
+      const pos = selected ? start + replacement.length : start + caretOffset
+      const endPos = selected ? pos : pos + (replacement.length - caretOffset * 2 > 0 ? replacement.length - caretOffset * 2 : 0)
+      el.setSelectionRange(pos, selected ? pos : endPos)
+    })
+  }
+
   function addTag() {
     const t = tagDraft.trim().toLowerCase()
     setTagDraft('')
+    setAddingTag(false)
     if (!t || tags.includes(t)) return
     const next = [...tags, t]
     setTags(next)
@@ -68,6 +139,28 @@ export default function NoteEditor({ noteId, onBack, onDeleted }: NoteEditorProp
     const next = tags.filter((t) => t !== tag)
     setTags(next)
     void updateNote(noteId, { tags: next })
+  }
+
+  async function handleShare() {
+    const text = `${title || 'Untitled'}\n\n${content}`.trim()
+    // Native share sheet where the platform has one; clipboard everywhere
+    // else, so the button always does something real.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: title || 'Untitled note', text })
+        return
+      } catch {
+        // Dismissed or unavailable — fall through to the clipboard.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      setShareNote('Copied to clipboard')
+      window.setTimeout(() => setShareNote(null), 2500)
+    } catch {
+      setShareNote("Couldn't share this note")
+      window.setTimeout(() => setShareNote(null), 2500)
+    }
   }
 
   async function handleDelete() {
@@ -87,74 +180,120 @@ export default function NoteEditor({ noteId, onBack, onDeleted }: NoteEditorProp
 
   if (status === 'not-found') {
     return (
-      <div className="page">
-        <div className="topbar">
-          <button className="icon-btn" type="button" onClick={onBack} aria-label="Back">
-            <IconBack />
+      <div className="m-screen">
+        <div className="verify-header">
+          <button type="button" className="verify-back-btn" onClick={onBack} aria-label="Back">
+            <IconBack size={20} />
           </button>
+          <h1>Note</h1>
         </div>
-        <div className="empty-state">
+        <div className="m-empty">
           <p>This note is gone.</p>
-          <p className="muted">It may have been deleted.</p>
+          <p className="sub">It may have been deleted.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="page">
-      <div className="topbar">
-        <button className="icon-btn" type="button" onClick={handleDone} aria-label="Back">
-          <IconBack />
+    <div className="m-screen m-screen-editor">
+      <div className="m-header">
+        <button type="button" className="verify-back-btn" onClick={handleDone} aria-label="Back">
+          <IconBack size={20} />
         </button>
-        <button className="save-btn" type="button" onClick={handleDone}>
-          Done
+        <div className="m-heading">
+          <h1>Edit note</h1>
+        </div>
+        <button type="button" className="m-header-action" onClick={() => void handleShare()}>
+          Share
         </button>
       </div>
 
-      <input
-        className="title-input"
-        placeholder="Untitled"
-        value={title}
-        autoFocus
-        onChange={(e) => handleTitleChange(e.target.value)}
-      />
-      <p className="meta">
-        {new Date(createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
-      </p>
+      <div className="m-save-state">
+        <span className={saveState === 'saved' ? 'm-save-pill saved' : 'm-save-pill'}>
+          {saveState === 'saved' ? '● Saved' : '● Saving…'}
+        </span>
+        <span className="m-save-time">
+          {shareNote ?? (updatedAt ? `Updated ${relativeDate(updatedAt)}` : '')}
+        </span>
+      </div>
 
-      <textarea
-        className="content-textarea"
-        placeholder="Start writing…"
-        value={content}
-        onChange={(e) => handleContentChange(e.target.value)}
-      />
-
-      <div className="tags-row">
-        {tags.map((tag) => (
-          <span key={tag} className="tag">
-            {tag}
-            <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove tag ${tag}`}>
-              <IconClose />
-            </button>
-          </span>
-        ))}
+      <div className="m-editor">
         <input
-          className="tag-input"
-          placeholder="+ add tag"
-          value={tagDraft}
-          onChange={(e) => setTagDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              addTag()
-            }
-          }}
-          onBlur={addTag}
+          className="m-editor-title"
+          placeholder="Untitled"
+          value={title}
+          onChange={(e) => handleTitleChange(e.target.value)}
+        />
+
+        <div className="m-chips m-chips-tags">
+          {tags.map((tag) => (
+            <span key={tag} className="m-chip m-chip-tag">
+              #{tag}
+              <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove tag ${tag}`}>
+                <IconClose size={10} />
+              </button>
+            </span>
+          ))}
+          {addingTag ? (
+            <input
+              className="m-chip m-tag-input"
+              placeholder="tag"
+              value={tagDraft}
+              autoFocus
+              onChange={(e) => setTagDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addTag()
+                }
+                if (e.key === 'Escape') {
+                  setTagDraft('')
+                  setAddingTag(false)
+                }
+              }}
+              onBlur={addTag}
+            />
+          ) : (
+            <button type="button" className="m-chip" onClick={() => setAddingTag(true)}>
+              + Tag
+            </button>
+          )}
+        </div>
+
+        <textarea
+          ref={contentRef}
+          className="m-editor-body"
+          placeholder="Start writing…"
+          value={content}
+          onChange={(e) => handleContentChange(e.target.value)}
         />
       </div>
 
-      <button className="delete-btn" type="button" onClick={handleDelete}>
+      <div className="m-toolbar">
+        <button type="button" onClick={() => applyFormat('bold')} aria-label="Bold">
+          <IconBold size={18} />
+        </button>
+        <button type="button" onClick={() => applyFormat('italic')} aria-label="Italic">
+          <IconItalic size={18} />
+        </button>
+        <button type="button" onClick={() => applyFormat('list')} aria-label="Bullet list">
+          <IconList size={18} />
+        </button>
+        <button type="button" onClick={() => applyFormat('checklist')} aria-label="Checklist">
+          <IconCheckSquare size={18} />
+        </button>
+        <button type="button" onClick={() => applyFormat('link')} aria-label="Link">
+          <IconLink size={18} />
+        </button>
+      </div>
+
+      {/* The design also has an image button and a "Set reminder" row. Both
+          need backends this app doesn't have yet (attachment storage for
+          notes, and scheduled reminders), so they're left out rather than
+          shipped as controls that do nothing. */}
+
+      <button className="m-danger-link" type="button" onClick={() => void handleDelete()}>
         Delete note
       </button>
     </div>

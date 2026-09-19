@@ -145,7 +145,9 @@ export default function App() {
           {view.section === 'notes' && (
             <Notes
               onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'notes' })}
-              onCapture={() => setCaptureOpen(true)}
+              onOpenVoiceNote={(id) => setView({ name: 'voice', voiceNoteId: id, from: 'notes' })}
+              onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'notes' })}
+              onNewNote={() => void handleTextNoteCapture()}
             />
           )}
 
