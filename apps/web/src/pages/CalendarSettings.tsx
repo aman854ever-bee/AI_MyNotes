@@ -74,151 +74,155 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
   const googleAccount = accounts.find((a) => a.provider === 'google') ?? null
 
   return (
-    <div className="page">
-      {onBack && (
-        <div className="topbar">
-          <button className="icon-btn" type="button" onClick={onBack} aria-label="Back">
-            <IconBack />
+    <div className="m-screen">
+      <div className="m-header">
+        {onBack && (
+          <button type="button" className="verify-back-btn" onClick={onBack} aria-label="Back">
+            <IconBack size={20} />
           </button>
+        )}
+        <div className="m-heading">
+          <h1>Integrations</h1>
+          <p className="m-subhead">Connect a calendar so meetings show up automatically</p>
         </div>
-      )}
-
-      <h1 className="title-input" style={{ pointerEvents: 'none' }}>
-        Connect
-      </h1>
-      <p className="muted">
-        Connect a calendar so meeting invites show up in MyNotes automatically, with reminders before each one
-        starts.
-      </p>
+      </div>
 
       {!isSupabaseConfigured && <div className="banner">Connect Supabase first — see apps/web/.env.</div>}
 
-      <div>
-        <p className="section-label">Providers</p>
-
-        <div className="provider-card">
-          <div className="provider-card-head">
-            <span className="provider-icon">
-              <IconGoogle size={20} />
+      <div className="m-card m-card-lg">
+        <div className="m-list-item" style={{ cursor: 'default' }}>
+          <span className="m-list-icon">
+            <IconGoogle size={18} />
+          </span>
+          <span className="m-list-copy">
+            <span className="m-list-title">Google Calendar</span>
+            <span className="m-list-sub">
+              {googleAccount
+                ? [
+                    googleAccount.provider_email,
+                    googleAccount.last_synced_at
+                      ? `Synced ${relativeDate(googleAccount.last_synced_at)}`
+                      : 'Not synced yet',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                : 'Not connected'}
             </span>
-            <div className="provider-info">
-              <div className="provider-name">Google Calendar / Google Meet</div>
-              <div className="provider-detail">
-                {googleAccount
-                  ? [
-                      googleAccount.provider_email,
-                      googleAccount.last_synced_at
-                        ? `Last synced ${relativeDate(googleAccount.last_synced_at)}`
-                        : 'Not synced yet',
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')
-                  : 'Not connected'}
-              </div>
-            </div>
-            <span
-              className={
-                !googleAccount
-                  ? 'status-pill not-connected'
-                  : googleAccount.sync_enabled
-                    ? 'status-pill connected'
-                    : 'status-pill paused'
-              }
+          </span>
+          <span
+            className={
+              !googleAccount
+                ? 'm-status-pill'
+                : googleAccount.sync_enabled
+                  ? 'm-status-pill connected'
+                  : 'm-status-pill paused'
+            }
+          >
+            {!googleAccount ? 'Off' : googleAccount.sync_enabled ? 'On' : 'Paused'}
+          </span>
+        </div>
+
+        <div className="m-inline-actions">
+          {!googleAccount ? (
+            <button
+              type="button"
+              className="m-small-btn"
+              disabled={connecting === 'google' || !isSupabaseConfigured}
+              onClick={() => void handleConnect('google')}
             >
-              {!googleAccount ? 'Not connected' : googleAccount.sync_enabled ? 'Connected' : 'Paused'}
-            </span>
-          </div>
-
-          <div className="provider-card-actions">
-            {!googleAccount && (
-              <button
-                className="analyze-btn"
-                type="button"
-                style={{ width: 'auto', padding: '10px 16px' }}
-                disabled={connecting === 'google' || !isSupabaseConfigured}
-                onClick={() => void handleConnect('google')}
-              >
-                {connecting === 'google' ? 'Redirecting…' : 'Connect Google Calendar'}
+              {connecting === 'google' ? 'Redirecting…' : 'Connect'}
+            </button>
+          ) : (
+            <>
+              <button type="button" className="m-small-btn" disabled={syncing} onClick={() => void handleSync()}>
+                {syncing ? 'Syncing…' : 'Sync now'}
               </button>
-            )}
-            {googleAccount && (
-              <>
-                <button
-                  className="analyze-btn"
-                  type="button"
-                  style={{ width: 'auto', padding: '10px 16px' }}
-                  disabled={syncing}
-                  onClick={() => void handleSync()}
-                >
-                  {syncing ? 'Syncing…' : 'Sync now'}
-                </button>
-                <button className="suggestion-ignore" type="button" onClick={() => void handleDisconnect(googleAccount.id)}>
-                  Disconnect
-                </button>
-              </>
-            )}
-          </div>
+              <button
+                type="button"
+                className="m-small-btn ghost"
+                onClick={() => void handleDisconnect(googleAccount.id)}
+              >
+                Disconnect
+              </button>
+            </>
+          )}
+        </div>
 
-          {googleAccount && (
-            <div className="sync-toggle-row">
-              <div>
-                <div className="sync-toggle-label">Sync automatically</div>
-                <div className="sync-toggle-sub">
+        {googleAccount && (
+          <>
+            <div className="m-divider" />
+            <div className="m-list-item" style={{ cursor: 'default' }}>
+              <span className="m-list-copy">
+                <span className="m-list-title">Sync automatically</span>
+                <span className="m-list-sub">
                   {googleAccount.sync_enabled
-                    ? 'Included next time you tap "Sync now".'
-                    : 'Paused — skipped until you turn this back on.'}
-                </div>
-              </div>
+                    ? 'Included next time you sync'
+                    : 'Paused — skipped until you turn this back on'}
+                </span>
+              </span>
               <button
                 type="button"
                 role="switch"
                 aria-checked={googleAccount.sync_enabled}
                 aria-label="Sync automatically"
-                className={googleAccount.sync_enabled ? 'sync-toggle on' : 'sync-toggle'}
+                className={googleAccount.sync_enabled ? 'm-toggle on' : 'm-toggle'}
                 disabled={togglingId === googleAccount.id}
                 onClick={() => void handleToggleSync(googleAccount)}
               />
             </div>
-          )}
-        </div>
-
-        <div className="provider-card">
-          <div className="provider-card-head">
-            <span className="provider-icon">
-              <IconMicrosoft size={20} />
-            </span>
-            <div className="provider-info">
-              <div className="provider-name">Microsoft Teams / Outlook</div>
-              <div className="provider-detail">Needs an Azure AD app registration first (piece 6).</div>
-            </div>
-            <span className="status-pill coming-soon">Coming soon</span>
-          </div>
-        </div>
-
-        {error && <p className="muted" style={{ marginTop: 8 }}>{error}</p>}
-      </div>
-
-      <div>
-        <p className="section-label">Upcoming (next 14 days)</p>
-        {events.length === 0 ? (
-          <div className="empty-state">
-            <p>No synced events yet.</p>
-            <p className="muted">Connect a calendar and tap "Sync now".</p>
-          </div>
-        ) : (
-          <div className="group">
-            {events.map((e) => (
-              <div key={e.id} className="row" style={{ cursor: 'default' }}>
-                <span className="t">{e.title}</span>
-                <span className="m">
-                  {new Date(e.start_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
-                  {e.join_url ? ' · has a join link' : ''}
-                </span>
-              </div>
-            ))}
-          </div>
+          </>
         )}
       </div>
+
+      <div className="m-card m-card-lg">
+        <div className="m-list-item" style={{ cursor: 'default' }}>
+          <span className="m-list-icon">
+            <IconMicrosoft size={18} />
+          </span>
+          <span className="m-list-copy">
+            <span className="m-list-title">Microsoft Teams / Outlook</span>
+            <span className="m-list-sub">Needs an Azure AD app registration first</span>
+          </span>
+          <span className="m-status-pill">Soon</span>
+        </div>
+      </div>
+
+      {error && <p className="error">{error}</p>}
+
+      <div className="m-section-heading">
+        <h2>Upcoming</h2>
+        <span className="m-section-action" style={{ cursor: 'default' }}>
+          Next 14 days
+        </span>
+      </div>
+
+      {events.length === 0 ? (
+        <div className="m-empty">
+          <p>No synced events yet.</p>
+          <p className="sub">Connect a calendar and tap Sync now.</p>
+        </div>
+      ) : (
+        <div className="m-card m-card-lg">
+          {events.slice(0, 8).map((e, i) => (
+            <div key={e.id}>
+              {i > 0 && <div className="m-divider" style={{ marginBottom: 10 }} />}
+              <div className="m-list-item" style={{ cursor: 'default' }}>
+                <span className="m-list-copy">
+                  <span className="m-list-title">{e.title}</span>
+                  <span className="m-list-sub">
+                    {new Date(e.start_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                  </span>
+                </span>
+                {e.join_url && (
+                  <a className="m-row-pill" href={e.join_url} target="_blank" rel="noreferrer">
+                    Join
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

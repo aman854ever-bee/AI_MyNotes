@@ -151,7 +151,13 @@ export default function App() {
             />
           )}
 
-          {view.section === 'meetings' && <Calendar onOpenConnect={() => goToSection('connect')} />}
+          {view.section === 'meetings' && (
+            <Calendar
+              onOpenConnect={() => goToSection('connect')}
+              onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'meetings' })}
+              onNewMeeting={handleMeetingCapture}
+            />
+          )}
 
           {view.section === 'ai' && (
             <AskAI
@@ -160,7 +166,7 @@ export default function App() {
             />
           )}
 
-          {view.section === 'connect' && <CalendarSettings />}
+          {view.section === 'connect' && <CalendarSettings onBack={() => goToSection('profile')} />}
           {view.section === 'profile' && (
             <Profile session={session} onOpenConnect={() => goToSection('connect')} />
           )}
