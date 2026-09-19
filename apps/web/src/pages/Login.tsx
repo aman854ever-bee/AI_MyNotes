@@ -1,24 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { signInWithGoogle } from '../lib/googleSignIn'
+import { normalizePhone, formatCooldown } from '../lib/format'
 import { IconGoogle, IconMail, IconPhone, IconBack, IconSparkle, IconShieldCheck, IconLock } from '../components/icons'
 
 const RESEND_COOLDOWN_SECONDS = 30
 const OTP_LENGTH = 6
 
 type Mode = 'email' | 'phone'
-
-// E.164: a leading + followed by 8-15 digits, no spaces/dashes.
-function normalizePhone(raw: string): string | null {
-  const trimmed = raw.trim().replace(/[\s-]/g, '')
-  return /^\+[1-9]\d{7,14}$/.test(trimmed) ? trimmed : null
-}
-
-function formatCooldown(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
 
 export default function Login() {
   const [mode, setMode] = useState<Mode>('phone')

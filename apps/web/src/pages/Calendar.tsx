@@ -7,7 +7,7 @@ import {
 } from '../lib/calendar'
 import { listMeetings, type LocalMeeting } from '../lib/db'
 import { isSupabaseConfigured } from '../lib/supabaseClient'
-import { dayLabel, relativeDate, formatDuration } from '../lib/format'
+import { relativeDate, formatDuration, startOfDay, sameDay, formatTimeRange, groupByDay } from '../lib/format'
 import { IconCalendar, IconMeeting, IconLink, IconMic } from '../components/icons'
 
 interface CalendarProps {
@@ -17,37 +17,6 @@ interface CalendarProps {
 }
 
 const STRIP_DAYS = 5
-
-function startOfDay(d: Date): Date {
-  const copy = new Date(d)
-  copy.setHours(0, 0, 0, 0)
-  return copy
-}
-
-function sameDay(a: string, b: Date): boolean {
-  const d = new Date(a)
-  return (
-    d.getFullYear() === b.getFullYear() && d.getMonth() === b.getMonth() && d.getDate() === b.getDate()
-  )
-}
-
-function formatTimeRange(startIso: string, endIso: string | null): string {
-  const start = new Date(startIso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-  if (!endIso) return start
-  const end = new Date(endIso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-  return `${start} – ${end}`
-}
-
-function groupByDay(events: CalendarEvent[]): { label: string; events: CalendarEvent[] }[] {
-  const groups: { label: string; events: CalendarEvent[] }[] = []
-  for (const event of events) {
-    const label = dayLabel(event.start_at)
-    const last = groups[groups.length - 1]
-    if (last && last.label === label) last.events.push(event)
-    else groups.push({ label, events: [event] })
-  }
-  return groups
-}
 
 export default function Calendar({ onOpenConnect, onOpenMeeting, onNewMeeting }: CalendarProps) {
   const [accounts, setAccounts] = useState<CalendarAccount[]>([])

@@ -1,0 +1,46 @@
+name: Test
+
+# Runs on every push/PR. This is intentionally small right now: a real
+# typecheck of the whole project (which the sandbox that first wrote a
+# lot of this code couldn't run — npm was blocked there, see
+# docs/testing.md) plus the unit tests that exist so far in
+# apps/web/src/**/*.test.ts (currently just the pure helpers in
+# lib/format.ts — phone/date/time formatting, calendar day-grouping).
+#
+# What this does NOT cover yet: anything touching Supabase, Dexie,
+# calendar OAuth, meeting recording/transcription, or React component
+# behavior. See docs/testing.md for the honest state of test coverage
+# and what adding real component/e2e tests (Vitest + Testing Library,
+# or Playwright) would take.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22.6+ for --experimental-strip-types, which runs the .test.ts
+          # files directly with no bundler/framework needed.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+
+      - name: Unit tests
+        working-directory: apps/web
+        run: npm run test

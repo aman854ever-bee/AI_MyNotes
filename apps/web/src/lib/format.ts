@@ -1,3 +1,5 @@
+import type { CalendarEvent } from './calendar'
+
 export function relativeDate(iso: string): string {
   const then = new Date(iso).getTime()
   const now = Date.now()
@@ -46,4 +48,51 @@ export function dayLabel(iso: string): string {
     day: 'numeric',
     year: sameYear ? undefined : 'numeric',
   })
+}
+
+// Moved here (from Login.tsx) so it's testable in isolation from React/JSX —
+// pure, no side effects. E.164: a leading + followed by 8-15 digits, no
+// spaces/dashes.
+export function normalizePhone(raw: string): string | null {
+  const trimmed = raw.trim().replace(/[\s-]/g, '')
+  return /^\+[1-9]\d{7,14}$/.test(trimmed) ? trimmed : null
+}
+
+// Moved here (from Login.tsx) for the same reason — formats a countdown of
+// seconds as mm:ss for the OTP resend cooldown.
+export function formatCooldown(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+// Moved here (from Calendar.tsx) for the same reason — the Calendar page's
+// date-strip and agenda-grouping helpers.
+export function startOfDay(d: Date): Date {
+  const copy = new Date(d)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+export function sameDay(a: string, b: Date): boolean {
+  const d = new Date(a)
+  return d.getFullYear() === b.getFullYear() && d.getMonth() === b.getMonth() && d.getDate() === b.getDate()
+}
+
+export function formatTimeRange(startIso: string, endIso: string | null): string {
+  const start = new Date(startIso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  if (!endIso) return start
+  const end = new Date(endIso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  return `${start} – ${end}`
+}
+
+export function groupByDay(events: CalendarEvent[]): { label: string; events: CalendarEvent[] }[] {
+  const groups: { label: string; events: CalendarEvent[] }[] = []
+  for (const event of events) {
+    const label = dayLabel(event.start_at)
+    const last = groups[groups.length - 1]
+    if (last && last.label === label) last.events.push(event)
+    else groups.push({ label, events: [event] })
+  }
+  return groups
 }
