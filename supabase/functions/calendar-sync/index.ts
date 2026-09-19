@@ -53,6 +53,30 @@ interface CalendarAccountRow {
   provider: 'google' | 'microsoft'
   refresh_token: string
   sync_enabled: boolean
+  /** null = the provider's default (Google `primary`, MS default view). */
+  calendar_id: string | null
+  /** Per-account Microsoft tenant; falls back to the env var. Not a
+   *  secret — it's the directory the app registration lives in. */
+  oauth_tenant: string | null
+}
+
+/** Columns selected for sync. Kept in one place because a column added
+ *  to the interface but not here silently arrives as undefined. */
+const ACCOUNT_COLUMNS = 'id, user_id, provider, refresh_token, sync_enabled, calendar_id, oauth_tenant'
+
+/** Same, minus the 0007 columns — used to retry when that migration
+ *  hasn't been applied yet, so sync keeps working instead of failing
+ *  outright on a project that's one migration behind. */
+const ACCOUNT_COLUMNS_LEGACY = 'id, user_id, provider, refresh_token, sync_enabled'
+
+const DEFAULT_WINDOW_DAYS = 14
+const MIN_WINDOW_DAYS = 1
+const MAX_WINDOW_DAYS = 60
+
+function clampWindowDays(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_WINDOW_DAYS
+  return Math.min(MAX_WINDOW_DAYS, Math.max(MIN_WINDOW_DAYS, Math.round(n)))
 }
 
 interface GoogleEvent {
@@ -90,10 +114,18 @@ async function refreshGoogleAccessToken(refreshToken: string): Promise<{ accessT
   return { accessToken: data.access_token, expiresIn: data.expires_in ?? 3600 }
 }
 
-async function fetchGoogleEvents(accessToken: string): Promise<GoogleEvent[]> {
+async function fetchGoogleEvents(
+  accessToken: string,
+  windowDays: number,
+  calendarId: string | null,
+): Promise<GoogleEvent[]> {
   const now = new Date()
-  const until = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-  const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events')
+  const until = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000)
+  // encodeURIComponent because a Google calendar id is usually an email
+  // address, and secondary calendars' ids can contain characters that
+  // would otherwise break the path.
+  const calendar = encodeURIComponent(calendarId ?? 'primary')
+  const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${calendar}/events`)
   url.searchParams.set('timeMin', now.toISOString())
   url.searchParams.set('timeMax', until.toISOString())
   url.searchParams.set('singleEvents', 'true')
@@ -129,12 +161,17 @@ interface GraphEvent {
 
 async function refreshMicrosoftAccessToken(
   refreshToken: string,
+  tenant: string | null,
 ): Promise<{ accessToken: string; expiresIn: number } | null> {
   if (!MICROSOFT_OAUTH_CLIENT_ID || !MICROSOFT_OAUTH_CLIENT_SECRET) {
     console.error('[calendar-sync] MICROSOFT_OAUTH_CLIENT_ID/SECRET not set')
     return null
   }
-  const res = await fetch(`https://login.microsoftonline.com/${MICROSOFT_OAUTH_TENANT}/oauth2/v2.0/token`, {
+  // Per-account tenant wins over the deployment-wide env var. "common"
+  // only works for a multi-tenant app registration; a single-tenant one
+  // needs its own directory id, which is why this is settable at all.
+  const effectiveTenant = tenant?.trim() || MICROSOFT_OAUTH_TENANT
+  const res = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(effectiveTenant)}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -156,10 +193,18 @@ async function refreshMicrosoftAccessToken(
   return { accessToken: data.access_token, expiresIn: data.expires_in ?? 3600 }
 }
 
-async function fetchMicrosoftEvents(accessToken: string): Promise<GraphEvent[]> {
+async function fetchMicrosoftEvents(
+  accessToken: string,
+  windowDays: number,
+  calendarId: string | null,
+): Promise<GraphEvent[]> {
   const now = new Date()
-  const until = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-  const url = new URL('https://graph.microsoft.com/v1.0/me/calendarView')
+  const until = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000)
+  const url = new URL(
+    calendarId
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(calendarId)}/calendarView`
+      : 'https://graph.microsoft.com/v1.0/me/calendarView',
+  )
   url.searchParams.set('startDateTime', now.toISOString())
   url.searchParams.set('endDateTime', until.toISOString())
   url.searchParams.set('$orderby', 'start/dateTime')
@@ -205,6 +250,44 @@ function graphDateToIso(dateTime: string | undefined, timeZone: string | undefin
 
 function microsoftJoinUrl(event: GraphEvent): string | null {
   return event.onlineMeeting?.joinUrl ?? event.onlineMeetingUrl ?? null
+}
+
+interface AvailableCalendar {
+  id: string
+  name: string
+  isPrimary: boolean
+}
+
+async function listGoogleCalendars(accessToken: string): Promise<AvailableCalendar[]> {
+  const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=100', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    console.error('[calendar-sync] Google calendarList error', res.status, await res.text())
+    return []
+  }
+  const data = await res.json()
+  return (data.items ?? []).map((c: { id: string; summary?: string; primary?: boolean }) => ({
+    id: c.id,
+    name: c.summary || c.id,
+    isPrimary: c.primary === true,
+  }))
+}
+
+async function listMicrosoftCalendars(accessToken: string): Promise<AvailableCalendar[]> {
+  const res = await fetch('https://graph.microsoft.com/v1.0/me/calendars?$top=100&$select=id,name,isDefaultCalendar', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    console.error('[calendar-sync] Graph calendars error', res.status, await res.text())
+    return []
+  }
+  const data = await res.json()
+  return (data.value ?? []).map((c: { id: string; name?: string; isDefaultCalendar?: boolean }) => ({
+    id: c.id,
+    name: c.name || c.id,
+    isPrimary: c.isDefaultCalendar === true,
+  }))
 }
 
 /** The provider-independent shape a calendar_events row is built from. */
@@ -274,7 +357,7 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json({ error: 'Missing Authorization header' }, 401)
 
-  let body: { dryRun?: boolean } = {}
+  let body: { dryRun?: boolean; action?: string; provider?: 'google' | 'microsoft' } = {}
   try {
     body = await req.json()
   } catch {
@@ -304,25 +387,70 @@ Deno.serve(async (req: Request) => {
   const { data: userData, error: userError } = await supabase.auth.getUser()
   if (userError || !userData.user) return json({ error: 'Not authenticated' }, 401)
 
-  const { data: accounts, error: accountsError } = await supabase
-    .from('calendar_accounts')
-    .select('id, user_id, provider, refresh_token, sync_enabled')
+  // Try the 0007 columns first, and fall back if that migration hasn't
+  // been applied. Without the fallback, a project one migration behind
+  // would stop syncing entirely rather than just losing the new options —
+  // and on this repo migrations are applied by hand in the SQL editor, so
+  // being one behind is a realistic state, not a hypothetical.
+  let accounts: unknown[] | null = null
+  let accountsError: { message?: string; code?: string } | null = null
+  {
+    const attempt = await supabase.from('calendar_accounts').select(ACCOUNT_COLUMNS)
+    if (attempt.error && (attempt.error.code === '42703' || attempt.error.code === '42P01')) {
+      console.warn('[calendar-sync] migration 0007 not applied — syncing without per-account options')
+      const legacy = await supabase.from('calendar_accounts').select(ACCOUNT_COLUMNS_LEGACY)
+      accounts = legacy.data
+      accountsError = legacy.error
+    } else {
+      accounts = attempt.data
+      accountsError = attempt.error
+    }
+  }
 
   if (accountsError) {
     console.error('[calendar-sync] failed to load calendar_accounts', accountsError)
     return json({ error: 'Could not load connected calendars' }, 500)
   }
 
+  const typedAccounts = (accounts ?? []) as CalendarAccountRow[]
+
+  // Listing calendars needs a fresh access token, which needs the client
+  // secret — so it can't be done from the browser (ADR 0011).
+  if (body.action === 'listCalendars') {
+    const account = typedAccounts.find((a) => a.provider === body.provider)
+    if (!account) return json({ error: 'That calendar is not connected.' }, 400)
+
+    const refreshed =
+      account.provider === 'google'
+        ? await refreshGoogleAccessToken(account.refresh_token)
+        : await refreshMicrosoftAccessToken(account.refresh_token, account.oauth_tenant ?? null)
+    if (!refreshed) return json({ error: 'Could not refresh the access token for that account.' }, 502)
+
+    const calendars =
+      account.provider === 'google'
+        ? await listGoogleCalendars(refreshed.accessToken)
+        : await listMicrosoftCalendars(refreshed.accessToken)
+    return json({ calendars })
+  }
+
+  // How far ahead to look. Falls back to the previous hardcoded 14 days
+  // when the preferences row or table isn't there.
+  let windowDays = DEFAULT_WINDOW_DAYS
+  {
+    const prefs = await supabase.from('calendar_preferences').select('sync_window_days').maybeSingle()
+    if (!prefs.error && prefs.data) windowDays = clampWindowDays(prefs.data.sync_window_days)
+  }
+
   let synced = 0
 
-  for (const account of (accounts ?? []) as CalendarAccountRow[]) {
+  for (const account of typedAccounts) {
     if (account.provider !== 'google' && account.provider !== 'microsoft') continue
     if (!account.sync_enabled) continue // paused from the Connect page — leave stored events as-is
 
     const refreshed =
       account.provider === 'google'
         ? await refreshGoogleAccessToken(account.refresh_token)
-        : await refreshMicrosoftAccessToken(account.refresh_token)
+        : await refreshMicrosoftAccessToken(account.refresh_token, account.oauth_tenant ?? null)
     if (!refreshed) continue
 
     await supabase
@@ -338,10 +466,15 @@ Deno.serve(async (req: Request) => {
     // Both providers are normalized to the same row shape here, so the
     // upsert below (and everything downstream that reads calendar_events)
     // doesn't have to care which one an event came from.
+    const calendarId = account.calendar_id ?? null
     const rows: NormalizedEvent[] =
       account.provider === 'google'
-        ? (await fetchGoogleEvents(refreshed.accessToken)).map(normalizeGoogleEvent).filter(isPresent)
-        : (await fetchMicrosoftEvents(refreshed.accessToken)).map(normalizeGraphEvent).filter(isPresent)
+        ? (await fetchGoogleEvents(refreshed.accessToken, windowDays, calendarId))
+            .map(normalizeGoogleEvent)
+            .filter(isPresent)
+        : (await fetchMicrosoftEvents(refreshed.accessToken, windowDays, calendarId))
+            .map(normalizeGraphEvent)
+            .filter(isPresent)
 
     for (const row of rows) {
       const { error: upsertError } = await supabase.from('calendar_events').upsert(

@@ -679,6 +679,46 @@ code {
   font-style: italic;
 }
 
+/* Automatic sync settings (components/CalendarSyncSettings.tsx). */
+.sync-status {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+  line-height: 1.45;
+}
+.sync-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 6px;
+}
+.sync-option {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sync-option-label { font-size: 14px; font-weight: 500; }
+.sync-option select {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  /* Full width so the tap target is comfortable on a phone rather than
+     hugging the text. */
+  width: 100%;
+}
+.sync-option select:disabled { opacity: 0.55; }
+.sync-option-hint,
+.sync-option-note {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  line-height: 1.45;
+}
+.sync-option-note { margin: 0; }
+
 /* AI suggestions (Phase 4) */
 .analyze-btn {
   background: var(--accent); color: var(--accent-ink); border: none; border-radius: 10px;

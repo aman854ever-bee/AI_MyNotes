@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   connectCalendar,
   disconnectCalendar,
   listCalendarAccounts,
   listUpcomingCalendarEvents,
-  syncCalendars,
   toggleCalendarSync,
   type CalendarAccount,
   type CalendarEvent,
@@ -12,7 +11,11 @@ import {
 import { isSupabaseConfigured } from '../lib/supabaseClient'
 import { checkConnectedAccount, validateProviderSetup } from '../lib/calendarSetup'
 import { requirementsFor, type CalendarProviderId, type CheckResult } from '../lib/calendarRequirements'
+import { saveSyncPreferences } from '../lib/calendarPreferences'
+import { useAutoCalendarSync } from '../lib/useAutoCalendarSync'
+import type { SyncPreferences } from '../lib/syncSchedule'
 import CalendarProviderCard from '../components/CalendarProviderCard'
+import CalendarSyncSettings from '../components/CalendarSyncSettings'
 import { IconBack } from '../components/icons'
 
 interface CalendarSettingsProps {
@@ -32,12 +35,28 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
   })
   const [checking, setChecking] = useState<CalendarProviderId | null>(null)
   const [connecting, setConnecting] = useState<CalendarProviderId | null>(null)
-  const [syncing, setSyncing] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [savingPrefs, setSavingPrefs] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Drives automatic syncing as well as the manual button — this is what
+  // makes events appear without anyone pressing anything.
+  const autoSync = useAutoCalendarSync(isSupabaseConfigured)
+
+  // Kept in a ref so `reload` doesn't need the window in its dependency
+  // list — otherwise every preference change would re-create it and
+  // re-trigger the setup checks, which invoke the readiness probe.
+  const windowDaysRef = useRef(autoSync.prefs.syncWindowDays)
+  windowDaysRef.current = autoSync.prefs.syncWindowDays
+
   const reload = useCallback(async () => {
-    const [a, e] = await Promise.all([listCalendarAccounts(), listUpcomingCalendarEvents()])
+    const [a, e] = await Promise.all([
+      listCalendarAccounts(),
+      // Read back the same window that was synced, rather than the old
+      // hardcoded 14 days — otherwise a 30-day window would sync 30 days
+      // of events and then display only 14 of them.
+      listUpcomingCalendarEvents(windowDaysRef.current),
+    ])
     setAccounts(a)
     setEvents(e)
     return a
@@ -90,19 +109,8 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
   }
 
   async function handleSync() {
-    setSyncing(true)
     setError(null)
-    const result = await syncCalendars()
-    setSyncing(false)
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-    if (result.synced === 0) {
-      // Not an error, but worth saying — a silent no-op here is exactly
-      // what a broken-but-connected account looks like.
-      setError('Sync ran but returned no events. If you expected some, re-check the setup below.')
-    }
+    await autoSync.syncNow()
     await reload()
   }
 
@@ -111,6 +119,20 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
     await toggleCalendarSync(account.id, !account.sync_enabled)
     await reload()
     setTogglingId(null)
+  }
+
+  async function handleSavePrefs(next: SyncPreferences) {
+    setSavingPrefs(true)
+    setError(null)
+    const result = await saveSyncPreferences(next)
+    setSavingPrefs(false)
+    if (!result.ok) {
+      setError(result.message)
+      return
+    }
+    // Re-read rather than trusting local state: the saved values may have
+    // been clamped on the way in.
+    await autoSync.refreshPreferences()
   }
 
   return (
@@ -139,7 +161,7 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
             checks={checks[provider]}
             checking={checking === provider}
             connecting={connecting === provider}
-            syncing={syncing}
+            syncing={autoSync.syncing}
             toggling={account ? togglingId === account.id : false}
             onRecheck={() => void runChecks(provider, Boolean(account))}
             onConnect={() => void handleConnect(provider)}
@@ -150,12 +172,23 @@ export default function CalendarSettings({ onBack }: CalendarSettingsProps) {
         )
       })}
 
-      {error && <p className="error">{error}</p>}
+      <CalendarSyncSettings
+        prefs={autoSync.prefs}
+        hasAccount={accounts.length > 0}
+        lastSyncedAt={autoSync.lastSyncedAt}
+        idleReason={autoSync.idleReason}
+        saving={savingPrefs}
+        onSave={(next) => void handleSavePrefs(next)}
+      />
+
+      {(error || autoSync.error) && <p className="error">{error ?? autoSync.error}</p>}
 
       <div className="m-section-heading">
         <h2>Upcoming</h2>
         <span className="m-section-action" style={{ cursor: 'default' }}>
-          Next 14 days
+          {/* Follows the configured window — a fixed "Next 14 days" here
+              would start lying the moment someone changed it. */}
+          Next {autoSync.prefs.syncWindowDays} days
         </span>
       </div>
 

@@ -1,6 +1,6 @@
 # Testing — current state, honestly
 
-Short version: there is a small, real, automated unit test suite (64
+Short version: there is a small, real, automated unit test suite (80
 tests) for the app's pure logic — date/time formatting, phone number
 normalization, calendar day-grouping, microphone-permission guidance, and
 calendar provider setup requirements. There is **no** test coverage for
@@ -52,6 +52,15 @@ that Microsoft maps to Supabase's `azure` key and requests
 `offline_access`, that Google stays read-only, that no step ever carries a
 secret's value, and the pass/fail roll-up that gates the Connect button.
 
+`apps/web/src/lib/syncSchedule.test.ts` — 16 tests covering automatic
+sync scheduling in `lib/syncSchedule.ts`: when a sync is due, the retry
+guard that stops a failing sync looping, the timer floor that stops a
+0ms timeout spinning, and preference clamping. This one has already
+earned its keep — it caught a real bug where `Number(null)` being `0`
+(finite!) made a null interval clamp to the *minimum* of 5 minutes
+rather than fall back to the 30-minute default, silently syncing six
+times more often than intended.
+
 ### Why Node's built-in test runner instead of Vitest/Jest
 
 This repo has no test framework installed, and `npm install` isn't
@@ -69,7 +78,7 @@ npm run test
 The script lists its test files **explicitly**:
 
 ```
-node --experimental-strip-types --test src/lib/format.test.ts src/lib/micGuidance.test.ts src/lib/calendarRequirements.test.ts
+node --experimental-strip-types --test src/lib/format.test.ts src/lib/micGuidance.test.ts src/lib/calendarRequirements.test.ts src/lib/syncSchedule.test.ts
 ```
 
 That verbosity is deliberate. An earlier version used
