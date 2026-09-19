@@ -51,4 +51,16 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Voice notes and meeting recording (MeetingRecorder.tsx /
+         VoiceRecorder.tsx) call the web getUserMedia({audio: true}) API
+         inside the WebView. Without this declared here, Android can never
+         grant microphone access to the app at runtime — regardless of what
+         the user taps on any permission dialog — so getUserMedia() always
+         rejects and both recorder screens immediately show "Microphone
+         access was denied." Capacitor's Bridge (capacitor-android)
+         forwards the WebView's getUserMedia permission request into a real
+         Android runtime-permission prompt automatically; this manifest
+         entry is the only piece that was missing. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 </manifest>
