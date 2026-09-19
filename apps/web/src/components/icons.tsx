@@ -161,6 +161,49 @@ export function IconProfile({ size = 20, className }: IconProps) {
   )
 }
 
+export function IconSparkle({ size = 20, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 2l2.2 7.2L21 11.5l-6.8 2.3L12 21l-2.2-7.2L3 11.5l6.8-2.3z" />
+    </svg>
+  )
+}
+
+export function IconMail({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="M3.5 6.5l8.5 6.5 8.5-6.5" />
+    </svg>
+  )
+}
+
+export function IconShieldCheck({ size = 24, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 3l7 3v5.5c0 4.6-3 8.3-7 9.5-4-1.2-7-4.9-7-9.5V6z" />
+      <path d="M8.7 12.2l2.2 2.2 4.4-4.6" />
+    </svg>
+  )
+}
+
+export function IconLock({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="5" y="11" width="14" height="9" rx="2.2" />
+      <path d="M8 11V7.5a4 4 0 0 1 8 0V11" />
+    </svg>
+  )
+}
+
+export function IconPhone({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A18 18 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z" />
+    </svg>
+  )
+}
+
 export function IconGoogle({ size = 18, className }: IconProps) {
   // Brand mark — real colors, not a stroke icon like the rest of this file.
   return (

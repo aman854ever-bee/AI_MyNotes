@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import { signInWithGoogle } from '../lib/googleSignIn'
-import { IconGoogle } from '../components/icons'
+import { IconGoogle, IconMail, IconPhone, IconBack, IconSparkle, IconShieldCheck, IconLock } from '../components/icons'
 
 const RESEND_COOLDOWN_SECONDS = 30
+const OTP_LENGTH = 6
 
 type Mode = 'email' | 'phone'
 
@@ -13,10 +14,17 @@ function normalizePhone(raw: string): string | null {
   return /^\+[1-9]\d{7,14}$/.test(trimmed) ? trimmed : null
 }
 
+function formatCooldown(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 export default function Login() {
-  const [mode, setMode] = useState<Mode>('email')
+  const [mode, setMode] = useState<Mode>('phone')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
+  const [countryCode, setCountryCode] = useState('+91')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,6 +34,7 @@ export default function Login() {
   const [otp, setOtp] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([])
 
   const [resendCooldown, setResendCooldown] = useState(0)
   const [resendNotice, setResendNotice] = useState<string | null>(null)
@@ -36,6 +45,8 @@ export default function Login() {
       if (cooldownTimer.current) clearInterval(cooldownTimer.current)
     }
   }, [])
+
+  const fullPhone = `${countryCode.trim()}${phoneNumber.replace(/[^0-9]/g, '')}`
 
   function startCooldown() {
     setResendCooldown(RESEND_COOLDOWN_SECONDS)
@@ -55,7 +66,7 @@ export default function Login() {
   async function sendCode(): Promise<boolean> {
     if (!supabase) return false
     if (mode === 'phone') {
-      const normalized = normalizePhone(phone)
+      const normalized = normalizePhone(fullPhone)
       if (!normalized) {
         setError('Enter your number with country code, e.g. +91 98765 43210.')
         return false
@@ -110,13 +121,13 @@ export default function Login() {
 
   async function handleVerifyOtp(e: FormEvent) {
     e.preventDefault()
-    if (!supabase || otp.trim().length === 0) return
+    if (!supabase || otp.trim().length < OTP_LENGTH) return
     setOtpError(null)
     setVerifying(true)
     const { error: verifyError } =
       mode === 'phone'
         ? await supabase.auth.verifyOtp({
-            phone: normalizePhone(phone) as string,
+            phone: normalizePhone(fullPhone) as string,
             token: otp.trim(),
             type: 'sms',
           })
@@ -129,8 +140,11 @@ export default function Login() {
   function switchMode(next: Mode) {
     if (next === mode) return
     setMode(next)
-    setSent(false)
     setError(null)
+  }
+
+  function resetVerifyState() {
+    setSent(false)
     setOtp('')
     setOtpError(null)
     setResendNotice(null)
@@ -138,11 +152,50 @@ export default function Login() {
     if (cooldownTimer.current) clearInterval(cooldownTimer.current)
   }
 
+  // Back chevron on the verify screen — keeps what was typed so a typo is a quick edit, not a redo.
+  function goBackToEntry() {
+    resetVerifyState()
+  }
+
+  // "Use a different number/email" — explicit intent to start over with a new identifier.
   function useDifferentIdentifier() {
-    setSent(false)
-    setOtp('')
-    setOtpError(null)
-    setResendNotice(null)
+    resetVerifyState()
+    if (mode === 'phone') setPhoneNumber('')
+    else setEmail('')
+  }
+
+  const otpDigits = Array.from({ length: OTP_LENGTH }, (_, i) => otp[i] ?? '')
+
+  function handleOtpChange(index: number, raw: string) {
+    const digits = raw.replace(/[^0-9]/g, '')
+    const next = otpDigits.slice()
+    if (digits.length > 1) {
+      // Handles pasting a full code into one box.
+      for (let i = 0; i < digits.length && index + i < OTP_LENGTH; i++) {
+        next[index + i] = digits[i]
+      }
+      setOtp(next.join(''))
+      const lastIndex = Math.min(index + digits.length, OTP_LENGTH - 1)
+      otpRefs.current[lastIndex]?.focus()
+      return
+    }
+    next[index] = digits
+    setOtp(next.join(''))
+    if (digits && index < OTP_LENGTH - 1) otpRefs.current[index + 1]?.focus()
+  }
+
+  function handleOtpKeyDown(index: number, e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      e.preventDefault()
+      const next = otpDigits.slice()
+      next[index - 1] = ''
+      setOtp(next.join(''))
+      otpRefs.current[index - 1]?.focus()
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      otpRefs.current[index - 1]?.focus()
+    } else if (e.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+      otpRefs.current[index + 1]?.focus()
+    }
   }
 
   if (!isSupabaseConfigured) {
@@ -156,55 +209,82 @@ export default function Login() {
   }
 
   if (sent) {
-    const destination = mode === 'phone' ? phone.trim() : email
+    const destination = mode === 'phone' ? fullPhone : email
     return (
-      <div className="page">
-        <header className="home-header">
-          <h1>Check your {mode === 'phone' ? 'messages' : 'email'}</h1>
-          <p className="muted">
-            We sent a 6-digit code {mode === 'phone' ? 'by SMS' : 'by email'} to <strong>{destination}</strong>.
-          </p>
-        </header>
-
-        <form onSubmit={handleVerifyOtp} className="login-form">
-          {mode === 'email' && (
-            <p className="muted otp-lead">
-              Link not opening, or showing an error? Enter the code from the same email instead.
-            </p>
-          )}
-          <label htmlFor="otp">6-digit code</label>
-          <input
-            id="otp"
-            className="otp-input"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
-            placeholder="000000"
-            autoFocus
-          />
-          <button type="submit" disabled={verifying || otp.trim().length === 0}>
-            {verifying ? 'Verifying…' : 'Verify code'}
+      <div className="verify-screen">
+        <div className="verify-header">
+          <button type="button" className="verify-back-btn" onClick={goBackToEntry} aria-label="Back">
+            <IconBack size={20} />
           </button>
-          {otpError && <p className="error">{otpError}</p>}
+          <h1>Check your {mode === 'phone' ? 'messages' : 'email'}</h1>
+        </div>
+
+        <div className="verify-intro">
+          <div className="verify-security-icon">
+            <IconShieldCheck size={28} />
+          </div>
+          <p className="verify-lead">
+            We sent a 6-digit code {mode === 'phone' ? 'by SMS' : 'by email'} to <strong>{destination}</strong>. It expires in 10 minutes.
+          </p>
+        </div>
+
+        <form onSubmit={handleVerifyOtp}>
+          <div className="otp-digits">
+            {otpDigits.map((digit, i) => (
+              <input
+                key={i}
+                ref={(el) => {
+                  otpRefs.current[i] = el
+                }}
+                className={digit ? 'otp-digit filled' : 'otp-digit'}
+                type="text"
+                inputMode="numeric"
+                autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                maxLength={i === 0 ? OTP_LENGTH : 1}
+                value={digit}
+                onChange={(e) => handleOtpChange(i, e.target.value)}
+                onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                autoFocus={i === 0}
+                aria-label={`Digit ${i + 1} of ${OTP_LENGTH}`}
+              />
+            ))}
+          </div>
+
+          {otpError && <p className="error" style={{ marginTop: 14 }}>{otpError}</p>}
+
+          <button
+            type="submit"
+            className="verify-primary-btn"
+            style={{ marginTop: 16 }}
+            disabled={verifying || otp.trim().length < OTP_LENGTH}
+          >
+            {verifying ? 'Verifying…' : 'Verify and continue'}
+          </button>
         </form>
 
-        <p className="otp-resend-row">
-          <button
-            type="button"
-            className="link-btn"
-            onClick={() => void handleResend()}
-            disabled={resendCooldown > 0}
-          >
-            {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend code'}
-          </button>
+        <p className="verify-resend">
+          {resendCooldown > 0 ? (
+            <>Resend code in <strong>{formatCooldown(resendCooldown)}</strong></>
+          ) : (
+            <button type="button" className="verify-resend-btn" onClick={() => void handleResend()}>
+              Resend code
+            </button>
+          )}
         </p>
-        {resendNotice && <p className="muted">{resendNotice}</p>}
+        {resendNotice && <p className="verify-notice">{resendNotice}</p>}
 
-        <p className="otp-resend-row">
-          <button type="button" className="link-btn" onClick={useDifferentIdentifier}>
+        <div className="verify-protect-card">
+          <div className="verify-protect-icon">
+            <IconLock size={18} />
+          </div>
+          <div className="verify-protect-copy">
+            <p className="verify-protect-title">Your account stays protected</p>
+            <p className="verify-protect-sub">We use encrypted verification and never share your number.</p>
+          </div>
+        </div>
+
+        <p className="verify-alt-row">
+          <button type="button" className="verify-alt-link" onClick={useDifferentIdentifier}>
             {mode === 'phone' ? 'Use a different number' : 'Use a different email'}
           </button>
         </p>
@@ -213,78 +293,93 @@ export default function Login() {
   }
 
   return (
-    <div className="page">
-      <header className="home-header">
-        <h1>MyNotes</h1>
-        <p className="muted">Sign in with your email or phone — no password to remember.</p>
-      </header>
+    <div className="welcome-screen">
+      <div className="brand-mark">
+        <IconSparkle size={29} />
+      </div>
+      <p className="brand-label">MyNotes</p>
+      <h1>Your thoughts, meetings, and next moves—made clear.</h1>
+      <p className="welcome-sub">AI-powered notes that listen, organize, and turn every conversation into action.</p>
 
-      <button
-        type="button"
-        className="google-signin-btn"
-        onClick={() => void handleGoogleSignIn()}
-        disabled={googleLoading}
-      >
-        <IconGoogle size={18} />
-        {googleLoading ? 'Opening Google…' : 'Continue with Google'}
-      </button>
-      {googleError && <p className="error">{googleError}</p>}
+      <div className="login-panel">
+        <h2>Welcome back</h2>
 
-      <div className="auth-divider"><span>or</span></div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="identifier-field">
+            {mode === 'phone' ? (
+              <>
+                <input
+                  className="cc-input"
+                  type="tel"
+                  inputMode="tel"
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  aria-label="Country code"
+                />
+                <div className="cc-divider" />
+                <input
+                  className="id-input"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="98765 43210"
+                  aria-label="Phone number"
+                  required
+                />
+              </>
+            ) : (
+              <input
+                className="id-input"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                aria-label="Email"
+                required
+              />
+            )}
+          </div>
 
-      <div className="auth-tabs" role="tablist" aria-label="Sign-in method">
+          <button type="submit" className="welcome-primary-btn">
+            {mode === 'phone' ? 'Continue with phone' : 'Continue with email'}
+          </button>
+          {error && <p className="welcome-error">{error}</p>}
+        </form>
+
+        <div className="welcome-divider-label">OR</div>
+
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === 'email'}
-          className={mode === 'email' ? 'auth-tab active' : 'auth-tab'}
-          onClick={() => switchMode('email')}
+          className="welcome-secondary-btn"
+          onClick={() => void handleGoogleSignIn()}
+          disabled={googleLoading}
         >
-          Email
+          <IconGoogle size={18} />
+          {googleLoading ? 'Opening Google…' : 'Continue with Google'}
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'phone'}
-          className={mode === 'phone' ? 'auth-tab active' : 'auth-tab'}
-          onClick={() => switchMode('phone')}
-        >
-          Phone
+        {googleError && <p className="welcome-error">{googleError}</p>}
+
+        <button type="button" className="welcome-secondary-btn" onClick={() => switchMode(mode === 'phone' ? 'email' : 'phone')}>
+          {mode === 'phone' ? (
+            <>
+              <IconMail size={18} />
+              Continue with email
+            </>
+          ) : (
+            <>
+              <IconPhone size={18} />
+              Continue with phone
+            </>
+          )}
         </button>
+
+        <p className="welcome-more-note">More sign-in options · SSO</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="login-form">
-        {mode === 'email' ? (
-          <>
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </>
-        ) : (
-          <>
-            <label htmlFor="phone">Phone number</label>
-            <input
-              id="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-              required
-            />
-            <p className="muted otp-lead">Include your country code, e.g. +91 for India.</p>
-          </>
-        )}
-        <button type="submit">Send code</button>
-        {error && <p className="error">{error}</p>}
-      </form>
+      <p className="welcome-footer">By continuing, you agree to our Terms and Privacy Policy.</p>
     </div>
   )
 }

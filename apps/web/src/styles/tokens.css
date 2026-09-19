@@ -763,3 +763,348 @@ code {
 .sync-toggle.on::after { transform: translateX(16px); }
 .sync-toggle:disabled { opacity: 0.6; cursor: default; }
 .sync-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ============================================================
+   Sign-in redesign (Figma: node 4:4221 "Welcome and login" and
+   4:4255 "Verify phone"). Scoped under .welcome-screen /
+   .verify-screen with their own --w-*/--v-* custom properties so
+   the new brand colors (indigo #5a54e8, teal #36c9d3) sit
+   alongside the rest of the app's --accent blue without touching
+   it — every other screen is unaffected by this section. Same in
+   both themes for now: the source design is a single, deliberately
+   dark (welcome) / light (verify) pairing rather than a light/dark
+   toggle, matching the "one visual world" case for a themed flow.
+   ============================================================ */
+
+.welcome-screen,
+.verify-screen {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.welcome-screen::before,
+.verify-screen::before {
+  content: none;
+}
+
+.welcome-screen {
+  --w-bg: #15172a;
+  --w-primary: #5a54e8;
+  --w-teal: #36c9d3;
+  --w-ink: #172039;
+  --w-muted: #687086;
+  --w-border: #e4e7f0;
+  --w-footer-muted: #aeb4cc;
+  background: var(--w-bg);
+  color: #fff;
+  padding: 44px 24px 40px;
+  gap: 18px;
+}
+
+.brand-mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: var(--w-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.brand-label {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: var(--w-teal);
+  margin: 0;
+}
+.welcome-screen h1 {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.08;
+  margin: 0;
+  color: #fff;
+}
+.welcome-sub {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--w-muted);
+  margin: 0;
+}
+
+.login-panel {
+  background: #fff;
+  border-radius: 22px;
+  padding: 18px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--w-ink);
+}
+.login-panel h2 {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 18px;
+  margin: 0;
+  color: var(--w-ink);
+}
+
+.identifier-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--w-border);
+  border-radius: 14px;
+}
+.identifier-field .cc-input {
+  border: none;
+  outline: none;
+  background: none;
+  width: 46px;
+  flex: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--w-ink);
+  padding: 0;
+}
+.identifier-field .cc-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--w-border);
+  flex: none;
+}
+.identifier-field .id-input {
+  border: none;
+  outline: none;
+  background: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--w-ink);
+  padding: 0;
+}
+.identifier-field .id-input::placeholder { color: var(--w-muted); }
+
+.welcome-primary-btn,
+.verify-primary-btn {
+  height: 50px;
+  border-radius: 16px;
+  border: 1px solid var(--w-primary);
+  background: var(--w-primary);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.welcome-primary-btn:disabled,
+.verify-primary-btn:disabled { opacity: 0.6; cursor: default; }
+.welcome-primary-btn:focus-visible,
+.verify-primary-btn:focus-visible { outline: 2px solid var(--w-teal); outline-offset: 2px; }
+
+.welcome-divider-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--w-muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+}
+.welcome-divider-label::before,
+.welcome-divider-label::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--w-border);
+}
+
+.welcome-secondary-btn {
+  height: 50px;
+  border-radius: 16px;
+  border: 1px solid var(--w-border);
+  background: #fff;
+  color: var(--w-ink);
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.welcome-secondary-btn:disabled { opacity: 0.6; cursor: default; }
+.welcome-secondary-btn:hover { background: var(--w-border); }
+.welcome-secondary-btn:focus-visible { outline: 2px solid var(--w-primary); outline-offset: 1px; }
+
+.welcome-more-note {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--w-primary);
+  text-align: center;
+  margin: 0;
+}
+.welcome-footer {
+  font-family: var(--font-body);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--w-footer-muted);
+  text-align: center;
+  margin: 0;
+}
+.welcome-error {
+  color: #ffb4a8;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* --- Verify phone (light) --- */
+.verify-screen {
+  --v-bg: #f4f6fb;
+  --v-ink: #172039;
+  --v-muted: #687086;
+  --v-border: #e4e7f0;
+  --v-primary: #5a54e8;
+  --v-soft-green: #e8f7f1;
+  --v-soft-green-ink: #1c7a4d;
+  --v-soft-purple: #eeedff;
+  background: var(--v-bg);
+  color: var(--v-ink);
+  padding: 24px 20px 40px;
+  gap: 16px;
+}
+
+.verify-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.verify-back-btn {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--v-ink);
+  cursor: pointer;
+}
+.verify-header h1 {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 21px;
+  margin: 0;
+  color: var(--v-ink);
+}
+
+.verify-intro { display: flex; flex-direction: column; gap: 8px; }
+.verify-security-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: var(--v-soft-green);
+  color: var(--v-soft-green-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.verify-lead {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--v-ink);
+  margin: 0;
+}
+.verify-lead strong { font-weight: 700; }
+
+.otp-digits { display: flex; gap: 8px; }
+.otp-digit {
+  width: 51px;
+  height: 58px;
+  border-radius: 13px;
+  border: 1px solid var(--v-border);
+  background: #fff;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 22px;
+  text-align: center;
+  color: var(--v-ink);
+  padding: 0;
+}
+.otp-digit.filled { border-color: var(--v-primary); }
+.otp-digit:focus-visible { outline: none; border-color: var(--v-primary); }
+
+.verify-resend {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--v-muted);
+  text-align: center;
+  margin: 0;
+}
+.verify-resend strong { color: var(--v-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.verify-resend-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--v-primary);
+  cursor: pointer;
+}
+.verify-resend-btn:hover { text-decoration: underline; }
+.verify-resend-btn:disabled { color: var(--v-muted); cursor: default; text-decoration: none; }
+
+.verify-protect-card {
+  background: var(--v-soft-purple);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(23, 32, 57, 0.07);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.verify-protect-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--v-soft-purple);
+  color: var(--v-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.verify-protect-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.verify-protect-title { font-family: var(--font-body); font-size: 13px; color: var(--v-ink); margin: 0; }
+.verify-protect-sub { font-family: var(--font-body); font-size: 11px; color: var(--v-muted); margin: 0; }
+
+.verify-alt-row { margin: 0; text-align: center; }
+.verify-alt-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--v-primary);
+  cursor: pointer;
+}
+.verify-alt-link:hover { text-decoration: underline; }
+.verify-notice { font-family: var(--font-body); font-size: 13px; color: var(--v-muted); text-align: center; margin: 0; }
