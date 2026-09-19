@@ -550,6 +550,135 @@ code {
 .rec-stop-btn:disabled { opacity: 0.6; cursor: default; }
 .voice-row-icon { color: var(--accent); flex: none; display: flex; align-items: center; }
 
+/* Microphone permission help (see components/MicPermissionNotice.tsx).
+   Sits inside .recorder-body, which centers its children, so this needs an
+   explicit max-width and left-aligned step text — centered numbered steps
+   are noticeably harder to follow. */
+.mic-notice {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  max-width: 340px;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mic-notice-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: center;
+}
+.mic-notice-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.mic-notice-steps li { padding-left: 2px; }
+
+/* Calendar provider setup + validation (components/CalendarProviderCard).
+   Colors come from the existing semantic tokens rather than new ones, so
+   these follow the light/dark themes already defined above. */
+.setup-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0 2px;
+}
+.setup-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.setup-mark {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+.setup-check.pass { color: var(--ok, var(--ink-muted)); }
+.setup-check.fail { color: var(--crit); }
+.setup-check.warn { color: var(--ink); }
+.setup-check.skipped { color: var(--ink-muted); }
+
+.setup-check-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.setup-check-detail {
+  display: block;
+  color: var(--ink-muted);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.setup-steps-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 10px 0 2px;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.setup-steps-chevron {
+  display: inline-flex;
+  transition: transform 0.15s ease;
+}
+.setup-steps-chevron.open { transform: rotate(90deg); }
+
+.setup-steps {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13.5px;
+}
+.setup-steps li { padding-left: 2px; }
+.setup-step-title { display: block; font-weight: 500; }
+.setup-step-where { display: block; color: var(--ink-muted); margin-top: 1px; }
+.setup-step-value {
+  display: block;
+  margin-top: 5px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  /* These are long URLs and comma-joined secret names — they must wrap
+     rather than push the card sideways on a phone. */
+  overflow-wrap: anywhere;
+}
+.setup-step-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
 /* AI suggestions (Phase 4) */
 .analyze-btn {
   background: var(--accent); color: var(--accent-ink); border: none; border-radius: 10px;

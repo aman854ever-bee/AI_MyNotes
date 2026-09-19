@@ -1,12 +1,19 @@
 # Testing — current state, honestly
 
-Short version: there is a small, real, automated unit test suite for the
-app's pure logic (date/time formatting, phone number normalization,
-calendar day-grouping). There is **no** test coverage for anything that
-touches Supabase, Dexie, calendar OAuth, meeting recording/transcription,
-or React component/UI behavior. Don't read "tests pass" as "the app is
-tested" — this doc exists so that gap stays visible instead of getting
-papered over.
+Short version: there is a small, real, automated unit test suite (64
+tests) for the app's pure logic — date/time formatting, phone number
+normalization, calendar day-grouping, microphone-permission guidance, and
+calendar provider setup requirements. There is **no** test coverage for
+anything that touches Supabase, Dexie, calendar OAuth round-trips, actual
+audio capture, transcription, or React component/UI behavior. Don't read
+"tests pass" as "the app is tested" — this doc exists so that gap stays
+visible instead of getting papered over.
+
+In particular, two things these tests deliberately do **not** prove:
+the microphone tests check what the app *says* about a permission
+failure, never that capture itself works (that needs a real device with a
+real mic); and the calendar tests check the setup model, never that a
+real OAuth round-trip or a real Graph/Google API call succeeds.
 
 ## What exists today
 
@@ -26,6 +33,25 @@ dependencies) specifically so they could be tested on their own; the
 pages now import them from there instead of defining them locally. Pure
 behavior, not moved for any other reason.
 
+`apps/web/src/lib/micGuidance.test.ts` — 15 tests covering the
+microphone-permission decision logic in `lib/micGuidance.ts`: mapping a
+`getUserMedia` error name to a cause, choosing per-platform instructions
+(an Android user needs OS settings, a Chrome user needs the address bar),
+deciding when a retry button is pointless, and the audio-container
+preference order. The regression these lock down: the recorders used to
+report *every* capture failure as "Microphone access was denied", which
+was wrong for missing hardware, a mic held by another app, and an
+insecure origin — and on Android was shown when no permission prompt had
+ever appeared.
+
+`apps/web/src/lib/calendarRequirements.test.ts` — 14 tests covering the
+calendar provider setup model in `lib/calendarRequirements.ts`: the
+Supabase callback URL that providers must be told to allow (registering
+the app's own URL instead is the usual cause of `redirect_uri_mismatch`),
+that Microsoft maps to Supabase's `azure` key and requests
+`offline_access`, that Google stays read-only, that no step ever carries a
+secret's value, and the pass/fail roll-up that gates the Connect button.
+
 ### Why Node's built-in test runner instead of Vitest/Jest
 
 This repo has no test framework installed, and `npm install` isn't
@@ -40,8 +66,23 @@ cd apps/web
 npm run test
 ```
 
-(equivalent to `node --experimental-strip-types --test src/lib/format.test.ts`,
-generalized to pick up any `*.test.ts` file under `src/`)
+The script lists its test files **explicitly**:
+
+```
+node --experimental-strip-types --test src/lib/format.test.ts src/lib/micGuidance.test.ts src/lib/calendarRequirements.test.ts
+```
+
+That verbosity is deliberate. An earlier version used
+`$(find src -name '*.test.ts')` to pick files up automatically, which
+works in bash and silently breaks on Windows — `cmd.exe` has no `$(...)`
+command substitution, so it passes the literal string through to Node,
+which then tries to load a module called `src` and fails. This was
+confirmed broken on a real Windows machine, fixed, and then **lost** (the
+fix was made locally and never committed, so `master` carried the broken
+version for a while). If you add a test file, add it to this list — do
+not reintroduce shell globbing here. If the list ever gets long enough to
+be annoying, replace it with a small cross-platform Node script that
+walks `src/` with `node:fs`.
 
 This also runs in CI on every push/PR — see
 `.github/workflows/test.yml` — alongside the real project-wide

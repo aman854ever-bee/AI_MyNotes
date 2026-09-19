@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test $(find src -name '*.test.ts')"
+    "test": "node --experimental-strip-types --test src/lib/format.test.ts src/lib/micGuidance.test.ts src/lib/calendarRequirements.test.ts"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.2",
