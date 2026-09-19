@@ -27,6 +27,34 @@
   --font-head: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-body: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* --- MyNotes 2026 design tokens (Figma file 3lji9vI2g3O0O8ICA2J0uU) ---
+     The new design's palette. Introduced alongside the older --accent blue
+     set rather than replacing it, so screens migrate one at a time without
+     breaking the ones not yet rebuilt. Light values are lifted verbatim
+     from Figma; the dark variants below are derived (Figma defines light
+     only) so the app keeps the dark-mode support it already shipped. */
+  --m-bg: #f4f6fb;
+  --m-surface: #ffffff;
+  --m-ink: #172039;
+  --m-muted: #687086;
+  --m-border: #e4e7f0;
+  --m-primary: #5a54e8;
+  --m-primary-ink: #ffffff;
+  --m-primary-soft: #eeedff;
+  --m-teal: #36c9d3;
+  --m-dark: #15172a;
+  --m-dark-ink: #ffffff;
+  --m-dark-muted: #bfc5dc;
+  --m-soft-green: #e8f7f1;
+  --m-soft-green-ink: #1c7a4d;
+  --m-footer-muted: #aeb4cc;
+  --m-shadow: 0 8px 24px rgba(23, 32, 57, 0.07);
+
+  --m-radius-card: 16px;
+  --m-radius-panel: 22px;
+  --m-radius-field: 14px;
+  --m-radius-chip: 12px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -54,6 +82,23 @@
     --crit-soft: #3A1F1D;
     --ok: #5FCB93;
     --ok-soft: #133226;
+
+    --m-bg: #0f1120;
+    --m-surface: #191c30;
+    --m-ink: #eef1fb;
+    --m-muted: #9aa2be;
+    --m-border: #2a2f49;
+    --m-primary: #7b76f0;
+    --m-primary-ink: #ffffff;
+    --m-primary-soft: #262350;
+    --m-teal: #36c9d3;
+    --m-dark: #0a0b16;
+    --m-dark-ink: #ffffff;
+    --m-dark-muted: #bfc5dc;
+    --m-soft-green: #14302a;
+    --m-soft-green-ink: #5FCB93;
+    --m-footer-muted: #6f7695;
+    --m-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   }
 }
 
@@ -81,6 +126,23 @@
   --crit-soft: #3A1F1D;
   --ok: #5FCB93;
   --ok-soft: #133226;
+
+  --m-bg: #0f1120;
+  --m-surface: #191c30;
+  --m-ink: #eef1fb;
+  --m-muted: #9aa2be;
+  --m-border: #2a2f49;
+  --m-primary: #7b76f0;
+  --m-primary-ink: #ffffff;
+  --m-primary-soft: #262350;
+  --m-teal: #36c9d3;
+  --m-dark: #0a0b16;
+  --m-dark-ink: #ffffff;
+  --m-dark-muted: #bfc5dc;
+  --m-soft-green: #14302a;
+  --m-soft-green-ink: #5FCB93;
+  --m-footer-muted: #6f7695;
+  --m-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 * { box-sizing: border-box; }
@@ -800,7 +862,7 @@ code {
   --w-footer-muted: #aeb4cc;
   background: var(--w-bg);
   color: #fff;
-  padding: 44px 24px 40px;
+  padding: calc(28px + env(safe-area-inset-top)) 24px 40px;
   gap: 18px;
 }
 
@@ -896,9 +958,12 @@ code {
 }
 .identifier-field .id-input::placeholder { color: var(--w-muted); }
 
-.welcome-primary-btn,
-.verify-primary-btn {
+/* Kept as two rules on purpose: --w-* only exists inside .welcome-screen,
+   so sharing one declaration left the verify button with an unresolved
+   background (i.e. invisible) once it moved onto the shared tokens. */
+.welcome-primary-btn {
   height: 50px;
+  width: 100%;
   border-radius: 16px;
   border: 1px solid var(--w-primary);
   background: var(--w-primary);
@@ -911,10 +976,26 @@ code {
   align-items: center;
   justify-content: center;
 }
-.welcome-primary-btn:disabled,
+.welcome-primary-btn:disabled { opacity: 0.6; cursor: default; }
+.welcome-primary-btn:focus-visible { outline: 2px solid var(--w-teal); outline-offset: 2px; }
+
+.verify-primary-btn {
+  height: 50px;
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid var(--v-primary);
+  background: var(--v-primary);
+  color: var(--m-primary-ink);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .verify-primary-btn:disabled { opacity: 0.6; cursor: default; }
-.welcome-primary-btn:focus-visible,
-.verify-primary-btn:focus-visible { outline: 2px solid var(--w-teal); outline-offset: 2px; }
+.verify-primary-btn:focus-visible { outline: 2px solid var(--m-teal); outline-offset: 2px; }
 
 .welcome-divider-label {
   display: flex;
@@ -972,19 +1053,21 @@ code {
   margin: 0;
 }
 
-/* --- Verify phone (light) --- */
+/* --- Verify phone --- (theme-following, unlike the deliberately-dark
+   welcome screen above: this is an ordinary app screen, so it maps onto
+   the shared --m-* tokens and picks up dark mode with everything else.) */
 .verify-screen {
-  --v-bg: #f4f6fb;
-  --v-ink: #172039;
-  --v-muted: #687086;
-  --v-border: #e4e7f0;
-  --v-primary: #5a54e8;
-  --v-soft-green: #e8f7f1;
-  --v-soft-green-ink: #1c7a4d;
-  --v-soft-purple: #eeedff;
+  --v-bg: var(--m-bg);
+  --v-ink: var(--m-ink);
+  --v-muted: var(--m-muted);
+  --v-border: var(--m-border);
+  --v-primary: var(--m-primary);
+  --v-soft-green: var(--m-soft-green);
+  --v-soft-green-ink: var(--m-soft-green-ink);
+  --v-soft-purple: var(--m-primary-soft);
   background: var(--v-bg);
   color: var(--v-ink);
-  padding: 24px 20px 40px;
+  padding: calc(14px + env(safe-area-inset-top)) 20px 40px;
   gap: 16px;
 }
 
@@ -1040,7 +1123,7 @@ code {
   height: 58px;
   border-radius: 13px;
   border: 1px solid var(--v-border);
-  background: #fff;
+  background: var(--m-surface);
   font-family: var(--font-body);
   font-weight: 700;
   font-size: 22px;
@@ -1095,6 +1178,357 @@ code {
 .verify-protect-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .verify-protect-title { font-family: var(--font-body); font-size: 13px; color: var(--v-ink); margin: 0; }
 .verify-protect-sub { font-family: var(--font-body); font-size: 11px; color: var(--v-muted); margin: 0; }
+
+/* ============================================================
+   App shell + Home dashboard (Figma node 4:4295). The Figma bottom
+   nav is Home / Notes / Meetings / AI / Profile at 68px tall. The
+   desktop rail below 820px+ is kept (Figma is mobile-only) so the
+   responsive behavior the app already shipped isn't regressed.
+   ============================================================ */
+
+.m-screen {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--m-bg);
+  color: var(--m-ink);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: calc(12px + env(safe-area-inset-top)) 20px 16px;
+  position: relative;
+}
+.m-screen::before { content: none; }
+
+.m-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.m-heading { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-heading h1 {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 1.25;
+  margin: 0;
+  color: var(--m-ink);
+}
+.m-heading .m-subhead {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--m-muted);
+  margin: 0;
+}
+
+.m-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.m-section-heading h2 {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 16px;
+  margin: 0;
+  color: var(--m-ink);
+}
+.m-section-action {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--m-primary);
+  cursor: pointer;
+  flex: none;
+}
+.m-section-action:hover { text-decoration: underline; }
+
+.m-card {
+  background: var(--m-surface);
+  border-radius: var(--m-radius-card);
+  box-shadow: var(--m-shadow);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.m-card-lg { padding: 16px; }
+
+.m-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 26px;
+  background: var(--m-primary);
+  color: var(--m-primary-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 16px;
+}
+.m-identity-name {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--m-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-list-chevron { color: var(--m-muted); flex: none; display: flex; }
+
+.m-secondary-btn {
+  height: 50px;
+  border-radius: var(--m-radius-card);
+  border: 1px solid var(--m-border);
+  background: var(--m-surface);
+  color: var(--m-ink);
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.m-secondary-btn:hover { background: var(--m-primary-soft); }
+.m-secondary-btn:focus-visible { outline: 2px solid var(--m-primary); outline-offset: 1px; }
+
+.m-version-footer {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--m-muted);
+  text-align: center;
+  margin: 0;
+}
+
+.m-quick-actions { display: flex; gap: 8px; }
+.m-quick-action {
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--m-surface);
+  border: none;
+  border-radius: var(--m-radius-field);
+  padding: 11px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  color: var(--m-primary);
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.m-quick-action .l {
+  font-size: 10px;
+  color: var(--m-ink);
+}
+.m-quick-action:hover { background: var(--m-primary-soft); }
+.m-quick-action:focus-visible { outline: 2px solid var(--m-primary); outline-offset: 1px; }
+
+/* Next-meeting card — the one dark surface inside the light app */
+.m-meeting-card {
+  background: var(--m-dark);
+  color: var(--m-dark-ink);
+  border-radius: var(--m-radius-card);
+  box-shadow: var(--m-shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.m-meeting-status { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.m-meeting-pill {
+  background: var(--m-primary);
+  color: var(--m-primary-ink);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  flex: none;
+}
+.m-meeting-reminder {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--m-teal);
+  flex: none;
+}
+.m-meeting-title {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 17px;
+  margin: 0;
+  color: var(--m-dark-ink);
+}
+.m-meeting-meta {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--m-dark-muted);
+  margin: 0;
+}
+
+.m-primary-btn {
+  height: 50px;
+  border-radius: var(--m-radius-card);
+  border: 1px solid var(--m-primary);
+  background: var(--m-primary);
+  color: var(--m-primary-ink);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.m-primary-btn:disabled { opacity: 0.6; cursor: default; }
+.m-primary-btn:focus-visible { outline: 2px solid var(--m-teal); outline-offset: 2px; }
+
+/* List rows inside cards */
+.m-list-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--m-ink);
+  cursor: pointer;
+}
+.m-list-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--m-radius-chip);
+  background: var(--m-primary-soft);
+  color: var(--m-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.m-list-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.m-list-title {
+  font-size: 13px;
+  color: var(--m-ink);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-list-sub {
+  font-size: 11px;
+  color: var(--m-muted);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-divider { height: 1px; background: var(--m-border); width: 100%; flex: none; }
+
+.m-feed { display: flex; flex-direction: column; gap: 9px; }
+.m-feed-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.m-empty {
+  background: var(--m-surface);
+  border-radius: var(--m-radius-card);
+  box-shadow: var(--m-shadow);
+  padding: 24px 18px;
+  text-align: center;
+}
+.m-empty p { margin: 0 0 4px; font-size: 14px; color: var(--m-ink); }
+.m-empty p.sub { font-size: 12px; color: var(--m-muted); margin: 0; }
+
+/* Bottom navigation, per Figma */
+.m-tabbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  max-width: 480px;
+  z-index: 15;
+  height: 68px;
+  background: var(--m-surface);
+  border-top: 1px solid var(--m-border);
+  padding: 9px 18px calc(8px + env(safe-area-inset-bottom));
+}
+.m-tab {
+  width: 58px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--m-muted);
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+.m-tab .l { font-size: 10px; font-weight: 500; }
+.m-tab.active { color: var(--m-primary); }
+.m-tab.active .l { font-weight: 700; }
+.m-tab:focus-visible { outline: 2px solid var(--m-primary); outline-offset: 2px; border-radius: 8px; }
+
+/* Room for the fixed tab bar at the bottom of every shell screen */
+.m-shell-content .m-screen { padding-bottom: 84px; }
+
+@media (min-width: 820px) {
+  .m-shell { display: flex; flex-direction: row; }
+  .m-shell-content { flex: 1 1 auto; min-width: 0; }
+  .m-tabbar {
+    position: sticky;
+    left: auto;
+    transform: none;
+    bottom: auto;
+    top: 0;
+    width: 84px;
+    max-width: none;
+    height: 100vh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 20px 0;
+    border-top: none;
+    border-right: 1px solid var(--m-border);
+  }
+  .m-tab {
+    width: 64px;
+    padding: 10px 4px;
+    border-radius: var(--radius);
+  }
+  .m-tab:hover { background: var(--m-primary-soft); }
+  .m-tab.active { background: var(--m-primary-soft); }
+  .m-shell-content .m-screen { padding-bottom: 24px; }
+}
 
 .verify-alt-row { margin: 0; text-align: center; }
 .verify-alt-link {

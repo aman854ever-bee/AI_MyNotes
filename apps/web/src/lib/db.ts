@@ -358,3 +358,21 @@ export async function createActionItem(input: CreateActionItemInput): Promise<Lo
 export async function listActionItemsForMeeting(meetingId: string): Promise<LocalActionItem[]> {
   return db.actionItems.where('sourceMeetingId').equals(meetingId).toArray()
 }
+
+/**
+ * Everything still outstanding, across every meeting — what the Home
+ * dashboard's "Today's brief" and the Reminders screen are built on.
+ * Sorted by due date, with undated items last (they're not urgent by
+ * definition, so they shouldn't crowd out dated ones).
+ */
+export async function listOpenActionItems(): Promise<LocalActionItem[]> {
+  const all = await db.actionItems.toArray()
+  return all
+    .filter((item) => item.status === 'pending' || item.status === 'in_progress')
+    .sort((a, b) => {
+      if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : 1
+      if (a.dueDate) return -1
+      if (b.dueDate) return 1
+      return a.createdAt < b.createdAt ? -1 : 1
+    })
+}

@@ -1,7 +1,10 @@
 import type { ComponentType, ReactNode } from 'react'
-import { IconCalendar, IconConnect, IconDashboard, IconDoc, IconProfile } from './icons'
+import { IconHome, IconNotebookPen, IconUsers, IconSparkle, IconProfile } from './icons'
 
-export type Section = 'dashboard' | 'notes' | 'calendar' | 'connect' | 'profile'
+// 'connect' is a real section but deliberately not a tab: the Figma design
+// moves Integrations out of the bottom nav and under Profile, so it's
+// reached from there rather than getting one of the five tab slots.
+export type Section = 'home' | 'notes' | 'meetings' | 'ai' | 'profile' | 'connect'
 
 interface NavItem {
   section: Section
@@ -10,10 +13,10 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { section: 'dashboard', label: 'Dashboard', icon: IconDashboard },
-  { section: 'notes', label: 'Notes', icon: IconDoc },
-  { section: 'calendar', label: 'Calendar', icon: IconCalendar },
-  { section: 'connect', label: 'Connect', icon: IconConnect },
+  { section: 'home', label: 'Home', icon: IconHome },
+  { section: 'notes', label: 'Notes', icon: IconNotebookPen },
+  { section: 'meetings', label: 'Meetings', icon: IconUsers },
+  { section: 'ai', label: 'AI', icon: IconSparkle },
   { section: 'profile', label: 'Profile', icon: IconProfile },
 ]
 
@@ -24,32 +27,21 @@ interface AppShellProps {
 }
 
 export default function AppShell({ active, onNavigate, children }: AppShellProps) {
+  // Connect has no tab of its own, so it shows Profile as the active tab —
+  // that's where it's reached from, and leaving every tab unlit reads as a bug.
+  const activeTab: Section = active === 'connect' ? 'profile' : active
+
   return (
-    <div className="app-shell">
-      <nav className="app-rail" aria-label="Primary">
+    <div className="m-shell">
+      <div className="m-shell-content">{children}</div>
+
+      <nav className="m-tabbar" aria-label="Primary">
         {NAV_ITEMS.map(({ section, label, icon: Icon }) => (
           <button
             key={section}
             type="button"
-            className={section === active ? 'rail-item active' : 'rail-item'}
-            aria-current={section === active ? 'page' : undefined}
-            onClick={() => onNavigate(section)}
-          >
-            <Icon size={20} />
-            <span className="l">{label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="app-shell-content">{children}</div>
-
-      <nav className="tabbar" aria-label="Primary">
-        {NAV_ITEMS.map(({ section, label, icon: Icon }) => (
-          <button
-            key={section}
-            type="button"
-            className={section === active ? 'tab active' : 'tab'}
-            aria-current={section === active ? 'page' : undefined}
+            className={section === activeTab ? 'm-tab active' : 'm-tab'}
+            aria-current={section === activeTab ? 'page' : undefined}
             onClick={() => onNavigate(section)}
           >
             <Icon size={20} />

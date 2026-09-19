@@ -10,6 +10,7 @@ import Login from './pages/Login'
 import NoteEditor from './pages/NoteEditor'
 import Notes from './pages/Notes'
 import Calendar from './pages/Calendar'
+import AskAI from './pages/AskAI'
 import Profile from './pages/Profile'
 import VoiceRecorder from './pages/VoiceRecorder'
 import VoiceNoteView from './pages/VoiceNoteView'
@@ -32,7 +33,7 @@ type View =
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [checked, setChecked] = useState(false)
-  const [view, setView] = useState<View>({ name: 'section', section: 'dashboard' })
+  const [view, setView] = useState<View>({ name: 'section', section: 'home' })
   const [captureOpen, setCaptureOpen] = useState(false)
 
   useEffect(() => {
@@ -68,8 +69,21 @@ export default function App() {
   }
 
   function captureFrom(): Section {
-    return view.name === 'section' ? view.section : 'dashboard'
+    return view.name === 'section' ? view.section : 'home'
   }
+
+  // The name the dashboard greets you by. Supabase puts a display name in
+  // user_metadata for Google sign-ins but not for phone/email OTP, so fall
+  // back to the email's local part, then to no name at all (the greeting
+  // reads fine without one) rather than showing a raw phone number.
+  const userName = (() => {
+    const meta = session?.user?.user_metadata as { full_name?: string; name?: string } | undefined
+    const full = meta?.full_name ?? meta?.name
+    if (full) return full.split(' ')[0]
+    const email = session?.user?.email
+    if (email) return email.split('@')[0]
+    return ''
+  })()
 
   async function handleTextNoteCapture() {
     const from = captureFrom()
@@ -114,13 +128,17 @@ export default function App() {
     return (
       <>
         <AppShell active={view.section} onNavigate={goToSection}>
-          {view.section === 'dashboard' && (
+          {view.section === 'home' && (
             <Home
-              onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'dashboard' })}
-              onOpenVoiceNote={(id) => setView({ name: 'voice', voiceNoteId: id, from: 'dashboard' })}
-              onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'dashboard' })}
+              userName={userName}
+              onOpenNote={(id) => setView({ name: 'editor', noteId: id, from: 'home' })}
+              onOpenVoiceNote={(id) => setView({ name: 'voice', voiceNoteId: id, from: 'home' })}
+              onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'home' })}
               onOpenNotesList={() => goToSection('notes')}
-              onCapture={() => setCaptureOpen(true)}
+              onOpenMeetingsList={() => goToSection('meetings')}
+              onNewNote={() => void handleTextNoteCapture()}
+              onNewVoiceNote={handleVoiceNoteCapture}
+              onNewMeeting={handleMeetingCapture}
             />
           )}
 
@@ -131,9 +149,19 @@ export default function App() {
             />
           )}
 
-          {view.section === 'calendar' && <Calendar onOpenConnect={() => goToSection('connect')} />}
+          {view.section === 'meetings' && <Calendar onOpenConnect={() => goToSection('connect')} />}
+
+          {view.section === 'ai' && (
+            <AskAI
+              onOpenMeeting={(id) => setView({ name: 'meeting', meetingId: id, from: 'ai' })}
+              onOpenMeetingsList={() => goToSection('meetings')}
+            />
+          )}
+
           {view.section === 'connect' && <CalendarSettings />}
-          {view.section === 'profile' && <Profile session={session} />}
+          {view.section === 'profile' && (
+            <Profile session={session} onOpenConnect={() => goToSection('connect')} />
+          )}
         </AppShell>
 
         {captureOpen && (
