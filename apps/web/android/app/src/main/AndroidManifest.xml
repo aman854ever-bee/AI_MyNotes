@@ -54,13 +54,31 @@
 
     <!-- Voice notes and meeting recording (MeetingRecorder.tsx /
          VoiceRecorder.tsx) call the web getUserMedia({audio: true}) API
-         inside the WebView. Without this declared here, Android can never
-         grant microphone access to the app at runtime — regardless of what
-         the user taps on any permission dialog — so getUserMedia() always
-         rejects and both recorder screens immediately show "Microphone
-         access was denied." Capacitor's Bridge (capacitor-android)
-         forwards the WebView's getUserMedia permission request into a real
-         Android runtime-permission prompt automatically; this manifest
-         entry is the only piece that was missing. -->
+         inside the WebView. Both of these are required, and it must be
+         BOTH — see Capacitor 6's BridgeWebChromeClient.onPermissionRequest,
+         which is what turns the WebView's permission request into a native
+         Android one:
+
+             if (resources.contains("...resource.AUDIO_CAPTURE")) {
+                 permissionList.add(MODIFY_AUDIO_SETTINGS);
+                 permissionList.add(RECORD_AUDIO);
+             }
+
+         It requests both, then grants the WebView request only if *every*
+         permission in that batch came back granted:
+
+             boolean granted = true;
+             for (entry : isGranted.entrySet())
+                 if (!entry.getValue()) granted = false;
+
+         Android auto-denies any permission not declared in this manifest
+         (no dialog — it just returns false), so declaring only RECORD_AUDIO
+         means MODIFY_AUDIO_SETTINGS comes back false, the whole batch is
+         treated as denied, Capacitor calls request.deny(), and
+         getUserMedia() rejects — leaving both recorder screens stuck on
+         "Microphone access was denied" even though the user tapped Allow.
+         MODIFY_AUDIO_SETTINGS is a normal (non-dangerous) permission, so
+         declaring it adds no extra prompt; it is granted at install time. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 </manifest>
