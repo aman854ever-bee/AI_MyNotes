@@ -829,7 +829,7 @@ code {
 /* ============================================================
    Sign-in redesign (Figma: node 4:4221 "Welcome and login" and
    4:4255 "Verify phone"). Scoped under .welcome-screen /
-   .verify-screen with their own --w-*/--v-* custom properties so
+   .verify-screen with their own --w-*  / --v-* custom properties so
    the new brand colors (indigo #5a54e8, teal #36c9d3) sit
    alongside the rest of the app's --accent blue without touching
    it — every other screen is unaffected by this section. Same in
